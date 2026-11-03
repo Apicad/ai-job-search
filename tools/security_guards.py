@@ -59,8 +59,30 @@ ALLOWED_PERMISSIONS = {
     "Bash(python3 tools/portals.py:*)",
     "Bash(python tools/eval_rank.py:*)",
     "Bash(python3 tools/eval_rank.py:*)",
+    # /quick-apply helpers: profile.json export of 01-candidate-profile.md and the
+    # base-CV stamp (copy cv/base_<family>.tex to a per-job file).
+    "Bash(python tools/export_profile.py:*)",
+    "Bash(python3 tools/export_profile.py:*)",
+    "Bash(python tools/base_cv.py:*)",
+    "Bash(python3 tools/base_cv.py:*)",
+    # /quick-apply fill step, Claude in Chrome: ONLY the read/navigate tools are
+    # pre-approvable. form_input, computer, javascript_tool, upload_file and the
+    # bare server name (mcp__claude-in-chrome, which would cover every tool) are
+    # deliberately absent so every write into an employer's form still prompts -
+    # that prompt is the per-step human check behind "pre-fill, never submit".
+    # MCP permission strings are mcp__<server>__<tool>; globs are not supported.
+    "mcp__claude-in-chrome__tabs_context_mcp",
+    "mcp__claude-in-chrome__tabs_create_mcp",
+    "mcp__claude-in-chrome__tabs_close_mcp",
+    "mcp__claude-in-chrome__navigate",
+    "mcp__claude-in-chrome__read_page",
     "Bash(pdftotext:*)",
 }
+
+# Browser tools that write into a page. Never allowlisted: the permission prompt
+# on each of these is the human check that keeps /quick-apply at pre-fill.
+FORBIDDEN_PERMISSION_SUFFIXES = ("__form_input", "__computer", "__javascript_tool", "__upload_file")
+FORBIDDEN_PERMISSIONS = {"mcp__claude-in-chrome", "mcp__Claude_Browser", "mcp__remote-devices"}
 
 # Personal-data ignore rules that must never disappear from .gitignore.
 REQUIRED_IGNORE_RULES = [
@@ -81,6 +103,11 @@ REQUIRED_IGNORE_RULES = [
     # The ats-feeds portal's personal company watchlist; the shipped
     # companies.example.json stays tracked.
     ".agents/skills/ats-feeds-search/companies.json",
+    # /quick-apply: base CVs per role family (tailored personal CVs, like
+    # cv/main_*) and the machine-readable profile export the fill step types
+    # into application forms.
+    "cv/base_*.*",
+    "profile.json",
     "*_BehavioralReport.pdf",
     "linkedin_Profile.pdf",
     "cv/main_*.*",
@@ -172,7 +199,26 @@ def _hook_commands(event: str, entries: object):
             yield f"{event}:{command}" if isinstance(command, str) else unrecognised
 
 
+def _is_forbidden_permission(entry: str) -> bool:
+    """True for a browser permission that writes into a page or spans a whole server."""
+    if entry in FORBIDDEN_PERMISSIONS:
+        return True
+    return entry.startswith("mcp__") and entry.endswith(FORBIDDEN_PERMISSION_SUFFIXES)
+
+
+def check_allowlist_self_consistency() -> None:
+    """The allowlist itself must never carry a page-writing browser permission."""
+    for entry in sorted(ALLOWED_PERMISSIONS):
+        if _is_forbidden_permission(entry):
+            errors.append(
+                f"tools/security_guards.py: ALLOWED_PERMISSIONS carries a page-writing or "
+                f"server-wide browser permission: {entry!r}. Remove it - the prompt on these "
+                "is the human check behind /quick-apply's pre-fill, never submit rule."
+            )
+
+
 def check_permissions() -> None:
+    check_allowlist_self_consistency()
     path = ROOT / ".claude" / "settings.json"
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
@@ -211,6 +257,14 @@ def check_permissions() -> None:
         errors.append(".claude/settings.json: permissions.allow must be a list of strings")
         return
     for entry in allow:
+        if _is_forbidden_permission(entry):
+            errors.append(
+                f".claude/settings.json: permission writes into a web page or covers a whole "
+                f"browser server and can never be pre-approved: {entry!r}. The permission "
+                "prompt on form_input/computer/javascript_tool/upload_file is the per-step "
+                "human check behind /quick-apply's pre-fill, never submit rule."
+            )
+            continue
         if entry not in ALLOWED_PERMISSIONS:
             errors.append(
                 f".claude/settings.json: permission not in the reviewed allowlist: {entry!r}. "

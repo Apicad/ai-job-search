@@ -63,6 +63,9 @@ skills-lock.json
 # artifacts like main_example.pdf/.aux.
 cv/main_*.*
 !cv/main_example.tex
+# Base CVs per role family for /quick-apply (cv/base_<family>.tex and their build
+# output). Personal data like any tailored CV; no example base ships, so no negation.
+cv/base_*.*
 cv/*.txt
 cover_letters/cover_*.*
 cover_letters/Cover_*.*
@@ -124,3 +127,7 @@ company_research/*.json
 # The ats-feeds portal's personal company watchlist. The shipped
 # companies.example.json stays tracked.
 .agents/skills/ats-feeds-search/companies.json
+
+# Machine-readable export of 01-candidate-profile.md (tools/export_profile.py) that
+# /quick-apply's fill step types into application forms. Personal data.
+profile.json
