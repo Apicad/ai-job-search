@@ -58,6 +58,20 @@ per-file diff commands.
 
 ### Fixed
 
+- **`CLI checks` CI jobs failed at `tsc --noEmit` for the four Danish portal CLIs**
+  (`jobbank-search`, `jobdanmark-search`, `jobindex-search`, `jobnet-search`) with
+  `Property 'status' does not exist on type 'Response'`, `'URL' refers to a value, but is
+  being used as a type here` and `Property 'get' does not exist on type 'Headers'`. Their
+  `tsconfig.json` set `"lib": ["ESNext"]` (no DOM) and relied on `bun-types` for the
+  fetch-family globals, but `bun-types` only declares `@types/node: "*"` - and in these
+  four projects, which also depend on `@bunli/core`/`@bunli/utils`, Bun resolves that to
+  `@types/node@16.9.1`, which has no `Response`, `Headers`, `URL` or `URLSearchParams`
+  globals. `bun.lock` is gitignored, so every CI run re-resolved into the same hole. The
+  `linkedin-search` and `freehire-search` CLIs never set `lib`, so TypeScript's default
+  DOM lib supplied those types and they kept passing. The `lib` line is removed from the
+  four tsconfigs to match them; `bun run typecheck` and `bun test` now pass in all four
+  (28, 37, 47 and 30 tests). Not the cause: the TypeScript version (5.8.3, 5.9.2 and
+  5.9.3 all failed) or `"types": ["bun"]` versus `["bun-types"]`.
 - **`/reset profile` left candidate data in two of the skill files it claims to clear**
   (#364) - `/setup` Step 3 populates six skill files; the profile scope cleared four.
   `04-job-evaluation.md` was listed by name under "files NOT touched (they contain
