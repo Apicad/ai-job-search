@@ -1,5 +1,5 @@
 ---
-framework_version: 1.5.0
+framework_version: 1.6.0
 ---
 
 # CV Templates and Tailoring Guide
@@ -137,6 +137,14 @@ When the role sits outside your home domain, **lead with the domain-transfer arg
 > [YOUR_PROFILE_STATEMENT_TEMPLATE_2]
 
 Statements labeled *[Used for: <company>_<role>]* were extracted from archived application drafts by `/setup` Path A. They are **phrasing references, never fact sources**: when drafting from one, every factual claim still comes from `01-candidate-profile.md` - a past tailored draft does not vouch for its own accuracy.
+
+### Base CVs for the quick tier (`cv/base_<family>.tex`)
+
+`/quick-apply` does not tailor a CV from `cv/main_example.tex` per job the way `/apply` Step 2 does. It starts from a **base CV per role family**: one file `cv/base_<family>.tex` for each of the 2-3 role types whose profile statement templates sit above, where `<family>` is the role type lowercased with every run of non-alphanumeric characters replaced by `_` (so `[YOUR_PRIMARY_ROLE_TYPE]` becomes something like `data_science_ml`). The base is the master CV already tailored to the *family* rather than to an employer: that role type's profile statement template, the Core Competencies ordered for the family, and the section order from **Recommended Section Order** below. Because it stands in for the tailoring that `/apply` would do, it must already be a finished, deliverable document: it **must pass `/apply` Step 5b at exactly 2 pages** before it is used.
+
+Its one job-specific hook is a placeholder: **the base's profile statement ends with the literal token `[EMPLOYER]`** (for example `..., which is what I would bring to [EMPLOYER].`). `python tools/base_cv.py stamp --family <family> --company <company> --role <role> --employer "<Employer>"` copies the base to `cv/main_<company>_<role>.tex` (filename per the **Subfolder naming** rule in `documents/README.md`) and replaces every `[EMPLOYER]` token with the employer's name; it refuses a base with no token, so the token is not optional. The per-job file is then edited by `/quick-apply` within its bounded-edit rules; the base itself is **never sent as-is and never edited per job** - a change that would improve every application in the family belongs in the base, a change for one employer belongs in the stamped copy.
+
+Base CVs are **built by `/quick-apply init`** (one per family, from `cv/main_example.tex` and the templates above) and are personal data: `cv/base_*.*` is gitignored alongside `cv/main_*.*`. `python tools/base_cv.py list` shows which families exist and whether each has a compiled PDF next to it.
 
 ### Core Competencies / Skills Section (Best Practice)
 Reorder and emphasize based on the role. Use bold category labels.
