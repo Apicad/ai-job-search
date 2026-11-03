@@ -349,13 +349,13 @@ Tell the user: "Both files are ready for your review. Open them to check the fin
 
 Do this before the optional offer below, and before ending the turn for any other reason.
 
-1. Read `job_search_tracker.csv`. If it does not exist, create it with the standard header (identical to `/outcome` Step 1.1, so the two commands never diverge):
+1. Do not Read `job_search_tracker.csv` - `tools/tracker.py` edits it one row at a time. Run `python tools/tracker.py init`: if the file does not exist, it creates it with the standard header (identical to `/outcome` Step 1.1, so the two commands never diverge):
    ```
    date,company,sector,role,role_type,channel,status,contact_person,fit_rating,notes,cv_file,cover_letter_file,source,deadline
    ```
-   **If the file exists and its header does not end in `,deadline`, append `,deadline` to the header line only** - no data row is touched. Legacy rows then read as an empty deadline.
-2. Match existing rows case-insensitively on company and role. **On no match, or when every match holds a final status, append a new row. On a match that is still open, update it.** "Final" and "open" are defined by the **Tracker status vocabulary** in `/outcome` — the legacy space spellings `no response` / `offer declined` count as final, so a closed application never gets its row overwritten. When you append alongside a final row, say so — the earlier application to that role keeps its own row and its own outcome.
-3. Values for a new row:
+   Then `python tools/tracker.py migrate`: **if the file exists and its header does not end in `,deadline`, append `,deadline` to the header line only** - no data row is touched. Legacy rows then read as an empty deadline.
+2. `python tools/tracker.py find --company "<company>" --role "<role>"` matches existing rows case-insensitively on company and role and prints each match with its row index, `is_final` and `is_open`. **On no match, or when every match holds a final status, append a new row. On a match that is still open, update it.** "Final" and "open" are defined by the **Tracker status vocabulary** in `/outcome` — the legacy space spellings `no response` / `offer declined` count as final, so a closed application never gets its row overwritten. When you append alongside a final row, say so — the earlier application to that role keeps its own row and its own outcome.
+3. Values for a new row - `python tools/tracker.py add --date <today> --company "<company>" --role "<role>" --status drafted --fit-rating <n> --cv-file <path> --cover-letter-file <path> --source "<url>" --channel <portal|online|> --sector "<...>" --role-type "<...>" --contact-person "<...>" --deadline <YYYY-MM-DD|>` (the tool validates the status against the vocabulary, `fit_rating` as an integer 0-100 and the deadline as ISO or empty):
 
    | Column | Value |
    |---|---|
@@ -368,8 +368,8 @@ Do this before the optional offer below, and before ending the turn for any othe
    | `sector`, `role_type`, `contact_person` | from the posting when it states them, empty otherwise |
    | `deadline` | the application deadline extracted in Step 0, as `YYYY-MM-DD`, empty when the posting states none. Never guess one from "apply soon" or from the posting date, and never carry a deadline over from a different posting |
 
-4. **Updating an open row: never move it backwards.** Refresh `cv_file`, `cover_letter_file`, `fit_rating`, `source` and `deadline` (leave an existing deadline alone when this run extracted none - absence is not a correction), and append an undated `redrafted` marker to `notes` (undated deliberately — `/outcome` reads the latest *dated* note as the last contact with the employer, and re-drafting a CV is not that). Leave `status` alone, and leave `date` alone unless the status is still `drafted`, in which case it becomes today.
-5. Never restructure the CSV, reorder rows, or touch other rows.
+4. **Updating an open row: never move it backwards.** `python tools/tracker.py update <row> --set cv_file=<path> --set cover_letter_file=<path> --set fit_rating=<n> --set source="<url>" [--set deadline=<YYYY-MM-DD>] --marker redrafted` refreshes `cv_file`, `cover_letter_file`, `fit_rating`, `source` and `deadline` (leave an existing deadline alone when this run extracted none - absence is not a correction, so omit the flag), and appends an undated `redrafted` marker to `notes` (undated deliberately — `/outcome` reads the latest *dated* note as the last contact with the employer, and re-drafting a CV is not that; the tool adds it once). Leave `status` alone (the tool refuses a backwards move without `--force`, and never touches a column you did not `--set`), and leave `date` alone unless the status is still `drafted`, in which case add `--set date=<today>`.
+5. Never restructure the CSV, reorder rows, or touch other rows - the tool rewrites only the named columns of the one row.
 6. **Do not modify `job_scraper/seen_jobs.json`.** Dedup runs off the tracker instead: `/rank` builds its exclusion set from company+role there regardless of status.
 7. **Archive the posting now.** Write the posting text you are holding from Step 0, verbatim and never a fresh fetch, to `documents/applications/<company>_<role>/job_posting.md`, creating the folder if absent. Derive `<company>_<role>` from the `company` and `role` values this tracker row ends up holding, by the same rule `/outcome` Step 1.4 uses. **If the file already exists, leave it** - the archived copy is what was actually submitted (a re-application to the same company and role collides here and keeps the older posting, as it does in `/outcome` today). **If you no longer hold the posting text, write nothing** - say so in the report and never reconstruct it from memory; `/outcome` Step 3.2 archives it later.
 

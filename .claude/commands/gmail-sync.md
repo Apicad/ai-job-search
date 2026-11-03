@@ -124,9 +124,9 @@ Approving the whole batch in one reply is expected UX - the requirement is that 
 
 For every row the user approved:
 
-1. **Tracker (`job_search_tracker.csv`):** update the matched row's `status` column per the Step 5 table, and append to `notes`: `<date> gmail-sync: <signal> ("<email subject>")`. Never restructure the CSV, reorder rows, or touch unrelated rows - same rule `/outcome` follows. The rewrite touches only `status`, `notes` (and `date` when the drafted-rule below fires): preserve every other field of the row, parsed or not, so the `deadline` column written by `/apply` Step 6b - or any column added in the future - is never blanked by a status sync.
+1. **Tracker (`job_search_tracker.csv`):** `python tools/tracker.py update <row> --set status=<status> --note '<date> gmail-sync: <signal> ("<email subject>")'` updates the matched row's `status` column per the Step 5 table and appends that note to `notes` (find the row index with `python tools/tracker.py find --company "<company>" --open`). Never restructure the CSV, reorder rows, or touch unrelated rows - same rule `/outcome` follows, and the tool rewrites only the named columns of the one row. The rewrite touches only `status`, `notes` (and `date` when the drafted-rule below fires): preserve every other field of the row, parsed or not, so the `deadline` column written by `/apply` Step 6b - or any column added in the future - is never blanked by a status sync.
 
-   **If the matched row was still `drafted`,** also set `date` to the email's date. The employer replying proves the user submitted by hand without running `/outcome`, so the drafting date now in that column is wrong. The email's date is an upper bound on the real submission date, tight for an ack and loose for a rejection weeks later, which is why Step 6 shows it and lets the user supply the actual date instead.
+   **If the matched row was still `drafted`,** also set `date` to the email's date (`--set date=<email date>` on the same call). The employer replying proves the user submitted by hand without running `/outcome`, so the drafting date now in that column is wrong. The email's date is an upper bound on the real submission date, tight for an ack and loose for a rejection weeks later, which is why Step 6 shows it and lets the user supply the actual date instead.
 2. **`outcome.md`:** tick the relevant stage checkbox (adding the date in parentheses) or update `Status`/`Date resolved` per the table. Append a dated entry to `## Notes`, never overwrite existing Notes history:
    ```
    YYYY-MM-DD (via /gmail-sync): <one-line summary of what the email said>. Source: "<subject>" from <sender>, <email date>.
@@ -145,9 +145,9 @@ Add every message ID processed this run - approved, skipped, unmatched, or filte
 
 ## Step 9: Staleness Check
 
-For open applications with **no** matching activity found this run, check the tracker's `date` column and the most recent dated Notes entry in their `outcome.md`. If the most recent of those is 30+ days old, flag the application as "needs follow-up" in the closing summary below. This is surfaced only - never write anything for staleness.
+For open applications with **no** matching activity found this run, check the tracker's `date` column and the most recent dated Notes entry in their `outcome.md`. `python tools/tracker.py stale --days 30 --today <today>` lists the open rows whose tracker-side activity (the `date` column and dated `notes` entries) is 30+ days old; cross-check each against its `outcome.md` Notes before flagging. If the most recent of those is 30+ days old, flag the application as "needs follow-up" in the closing summary below. This is surfaced only - never write anything for staleness.
 
-**Skip `drafted` rows here** - nothing was sent, so no one is late replying.
+**Skip `drafted` rows here** - nothing was sent, so no one is late replying (the tool already excludes them).
 
 ---
 
