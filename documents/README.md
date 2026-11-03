@@ -164,6 +164,8 @@ Any signal about what they valued or didn't?
 
 Application folders may also contain **`interview_prep_<stage>.md`** files written by `/interview` (one per interview stage, kept as history). `/setup` reads only the four files named above and ignores these.
 
+They may also contain **`form_fields.txt`**, the application-form answers written by `/apply`'s optional third artifact or by `/quick-apply` (format in `08-application-forms.md`); it is an extra file that `/setup` ignores in the same way.
+
 **What `/setup` learns from outcome.md:**
 - Which role types and companies have led to interviews (signals strong fit areas)
 - Which applications did not progress (informs the experience match calibration in `04-job-evaluation.md`)
