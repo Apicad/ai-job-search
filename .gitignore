@@ -112,3 +112,15 @@ company_research/*.json
 
 # Brainstorm mockups (superpowers visual companion) - never ship
 .superpowers/
+
+# Posting text stored by tools/jobs_db.py (full descriptions reveal search
+# history), raw portal-CLI output the model never reads into context, and
+# saved golden scoring runs for tools/eval_rank.py. Depth-independent like the
+# **/job_scraper rules above, for the same skill-relative-path reason.
+**/job_scraper/postings/**
+**/job_scraper/raw/**
+**/job_scraper/eval/**
+
+# The ats-feeds portal's personal company watchlist. The shipped
+# companies.example.json stays tracked.
+.agents/skills/ats-feeds-search/companies.json

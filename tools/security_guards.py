@@ -43,6 +43,22 @@ ALLOWED_PERMISSIONS = {
     "Bash(python3 salary_lookup.py:*)",
     "Bash(python tools/verify_pdf.py:*)",
     "Bash(python3 tools/verify_pdf.py:*)",
+    # Deterministic helpers the workflow specs call instead of doing the same
+    # bookkeeping as model output: PDF layout/ATS checks (/apply Step 5),
+    # seen_jobs.json + posting store (/scrape, /rank), tracker CSV (/apply 6b,
+    # /outcome, /gmail-sync), portal discovery (/scrape Step 1b), and the
+    # offline scoring-eval gate (/rank model-tier changes). All stdlib, all
+    # read/write only paths that are already gitignored personal data.
+    "Bash(python tools/check_cv.py:*)",
+    "Bash(python3 tools/check_cv.py:*)",
+    "Bash(python tools/jobs_db.py:*)",
+    "Bash(python3 tools/jobs_db.py:*)",
+    "Bash(python tools/tracker.py:*)",
+    "Bash(python3 tools/tracker.py:*)",
+    "Bash(python tools/portals.py:*)",
+    "Bash(python3 tools/portals.py:*)",
+    "Bash(python tools/eval_rank.py:*)",
+    "Bash(python3 tools/eval_rank.py:*)",
     "Bash(pdftotext:*)",
 }
 
@@ -55,6 +71,16 @@ REQUIRED_IGNORE_RULES = [
     "**/job_scraper/seen_jobs.json",
     "**/job_scraper/notion_sync.json",
     "**/job_scraper/*.md",
+    # Posting text stored by tools/jobs_db.py (full job descriptions reveal
+    # search history), raw portal-CLI output the model never reads into
+    # context, and saved golden scoring runs for tools/eval_rank.py. Same
+    # depth-independent shape as the rules above.
+    "**/job_scraper/postings/**",
+    "**/job_scraper/raw/**",
+    "**/job_scraper/eval/**",
+    # The ats-feeds portal's personal company watchlist; the shipped
+    # companies.example.json stays tracked.
+    ".agents/skills/ats-feeds-search/companies.json",
     "*_BehavioralReport.pdf",
     "linkedin_Profile.pdf",
     "cv/main_*.*",
