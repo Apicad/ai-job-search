@@ -24,6 +24,7 @@ Read in parallel:
 2. **`documents/applications/*/outcome.md`** — for each resolved application, read the outcome file to get the exact interview stages reached (the checkboxes) and any notes. Merge this into the matching tracker row by company+role fuzzy match (lowercase, ignore punctuation). If an archive exists for a row but there is no match, attach it as extra context anyway.
 
 Status normalisation — map tracker values to six canonical buckets before computing stats:
+- `ready` → **Drafted** (pre-drafted by `/quick-apply`, awaiting approval)
 - `drafted` → **Drafted** (documents written by `/apply`, not yet submitted)
 - `applied` → **Active** (resume submitted, no further signal)
 - `interview` → **Interview**
@@ -42,7 +43,7 @@ Status normalisation — map tracker values to six canonical buckets before comp
 
 From the normalised data compute:
 
-**Drafted rows are excluded from every statistic below** — they were never submitted. Report the Drafted count on its own, and include it only in the status breakdown.
+**Drafted rows are excluded from every statistic below** — they were never submitted (`ready` rows land in this bucket too, so the same exclusion covers both). Report the Drafted count on its own, and include it only in the status breakdown.
 
 - **Total applications**
 - **By status bucket:** count per bucket

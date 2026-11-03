@@ -66,21 +66,23 @@ class VocabularyConstants(unittest.TestCase):
     def test_statuses_match_outcome_vocabulary(self):
         self.assertEqual(
             tracker.STATUSES,
-            ["drafted", "applied", "interview", "offer", "hired", "rejected",
+            ["ready", "drafted", "applied", "interview", "offer", "hired", "rejected",
              "no_response", "offer_declined", "withdrawn"],
         )
         self.assertEqual(
             tracker.FINAL_STATUSES,
             ["hired", "rejected", "no_response", "offer_declined", "withdrawn"],
         )
-        self.assertEqual(tracker.OPEN_STATUSES, ["drafted", "applied", "interview", "offer"])
+        self.assertEqual(tracker.OPEN_STATUSES, ["ready", "drafted", "applied", "interview", "offer"])
+        self.assertEqual(tracker.NOT_SENT_STATUSES, ("ready", "drafted"))
         self.assertEqual(
             tracker.LEGACY_ALIASES,
             {"no response": "no_response", "offer declined": "offer_declined"},
         )
 
-    def test_status_order_drafted_to_terminal(self):
+    def test_status_order_ready_to_terminal(self):
         order = tracker.STATUS_ORDER
+        self.assertLess(order["ready"], order["drafted"])
         self.assertLess(order["drafted"], order["applied"])
         self.assertLess(order["applied"], order["interview"])
         self.assertLess(order["interview"], order["offer"])
@@ -232,6 +234,26 @@ class Add(TrackerTestCase):
         self.assertIn(LEGACY_ROWS, text)
         self.assertEqual(text.count(","), (HEADER + "\n" + LEGACY_ROWS).count(",") + 13)
 
+    def test_add_with_status_ready(self):
+        """/quick-apply writes the same row as /apply 6b with --status ready."""
+        code, payload, err = self.cli(
+            "add", "--date", "2026-11-03", "--company", "Hooli", "--role", "Platform Engineer",
+            "--status", "ready", "--role-type", "ml_engineer",
+        )
+        self.assertEqual(code, 0, err)
+        self.assertEqual(payload["status"], "ready")
+        self.assertTrue(payload["is_open"])
+        self.assertFalse(payload["is_final"])
+        code, rows, _ = self.cli("list", "--status", "ready")
+        self.assertEqual([r["company"] for r in rows], ["Hooli"])
+        code, rows, _ = self.cli("list", "--open")
+        self.assertIn("Hooli", [r["company"] for r in rows])
+
+    def test_add_default_status_stays_drafted(self):
+        code, payload, _ = self.cli("add", "--date", "2026-11-03", "--company", "X", "--role", "Y")
+        self.assertEqual(code, 0)
+        self.assertEqual(payload["status"], "drafted")
+
     def test_add_rejects_bad_status(self):
         code, payload, err = self.cli("add", "--date", "2026-11-03", "--company", "X", "--role", "Y", "--status", "pending")
         self.assertEqual(code, 1)
@@ -323,6 +345,42 @@ class Update(TrackerTestCase):
         self.assertEqual(payload["date"], "2026-11-01")
         self.assertNotIn("date_unchanged_warning", payload)
 
+    def test_ready_to_drafted_is_forward_and_keeps_date_without_warning(self):
+        """/quick-apply approve: both statuses are unsent, so `date` still means
+        'drafted on' and no submission-date warning fires."""
+        self.write(HEADER + "\n" + "2026-10-20,Hooli,,Dev,,portal,ready,,,,,,,\n")
+        code, payload, err = self.cli(
+            "update", "1", "--set", "status=drafted", "--note", "2026-11-03 approved via /quick-apply",
+        )
+        self.assertEqual(code, 0, err)
+        self.assertEqual(payload["status"], "drafted")
+        self.assertEqual(payload["date"], "2026-10-20")
+        self.assertNotIn("date_unchanged_warning", payload)
+
+    def test_ready_to_applied_without_date_warns(self):
+        self.write(HEADER + "\n" + "2026-10-20,Hooli,,Dev,,portal,ready,,,,,,,\n")
+        code, payload, _ = self.cli("update", "1", "--set", "status=applied")
+        self.assertEqual(code, 0)
+        self.assertEqual(payload["status"], "applied")
+        self.assertIn("date_unchanged_warning", payload)
+        self.assertIn("ready", payload["date_unchanged_warning"])
+        self.write(HEADER + "\n" + "2026-10-20,Hooli,,Dev,,portal,ready,,,,,,,\n")
+        code, payload, _ = self.cli("update", "1", "--set", "status=applied", "--set", "date=2026-11-03")
+        self.assertEqual(code, 0)
+        self.assertEqual(payload["date"], "2026-11-03")
+        self.assertNotIn("date_unchanged_warning", payload)
+
+    def test_drafted_to_ready_is_backwards(self):
+        before = self.read_bytes()
+        code, payload, err = self.cli("update", "3", "--set", "status=ready")
+        self.assertEqual(code, 1)
+        self.assertIsNone(payload)
+        self.assertIn("backwards", err)
+        self.assertEqual(self.read_bytes(), before)
+        code, payload, _ = self.cli("update", "3", "--set", "status=ready", "--force")
+        self.assertEqual(code, 0)
+        self.assertEqual(payload["status"], "ready")
+
     def test_legacy_spelling_rejected_on_write(self):
         code, _, err = self.cli("update", "1", "--set", "status=offer declined", "--force")
         self.assertEqual(code, 1)
@@ -410,6 +468,7 @@ class DateMath(TrackerTestCase):
         "2026-09-01,Chased Co,,Analyst,,email,applied,,,\"followed up 2026-09-15; followed up 2026-10-01\",,,,\n"
         "2026-09-01,Once Co,,Analyst,,email,applied,Bob,,\"followed up 2026-10-10\",,,,\n"  # 24 days quiet, 1 sent
         "2026-09-01,Draft Co,,Analyst,,email,drafted,,,,,,,2026-10-30\n"              # drafted, deadline passed
+        "2026-09-01,Ready Co,,Analyst,,email,ready,,,,,,,2026-11-01\n"                # ready, deadline passed
         "2026-09-01,Closed Co,,Analyst,,email,no response,,,,,,,2026-10-30\n"         # final
         "2026-10-30,Soon Co,,Analyst,,email,applied,,,,,,,2026-11-08\n"              # due in 5 days
         "2026-10-30,Later Co,,Analyst,,email,applied,,,,,,,2026-11-30\n"             # due in 27 days
@@ -429,6 +488,7 @@ class DateMath(TrackerTestCase):
             [("Quiet Co", 63, "2026-09-01"), ("Chased Co", 33, "2026-10-01")],
         )
         self.assertIn("Bad Date Co", err)
+        self.assertNotIn("Ready Co", [r["company"] for r in rows], "ready rows are unsent: never stale")
         for row in rows:
             self.assertEqual(set(row), {"row", "company", "role", "status", "days_quiet", "last_activity"})
 
@@ -441,12 +501,20 @@ class DateMath(TrackerTestCase):
     def test_deadlines(self):
         code, payload, _ = self.cli("deadlines", "--within", "7", "--today", "2026-11-03")
         self.assertEqual(code, 0)
-        self.assertEqual([(r["company"], r["days_left"]) for r in payload["passed"]], [("Draft Co", -4)])
+        self.assertEqual(
+            [(r["company"], r["days_left"]) for r in payload["passed"]],
+            [("Draft Co", -4), ("Ready Co", -2)],
+        )
         self.assertEqual(
             [(r["company"], r["days_left"]) for r in payload["due_soon"]],
             [("Soon Co", 5), ("Today Co", 0)],
         )
-        self.assertEqual([r["company"] for r in payload["drafted_past_deadline"]], ["Draft Co"])
+        self.assertEqual(
+            [r["company"] for r in payload["drafted_past_deadline"]],
+            ["Draft Co", "Ready Co"],
+            "a past-deadline ready row is the same failure as a past-deadline drafted one",
+        )
+        self.assertEqual(payload["passed"][1]["status"], "ready")
         self.assertEqual(payload["passed"][0]["status"], "drafted")
         self.assertEqual(payload["passed"][0]["deadline"], "2026-10-30")
         self.assertNotIn("Closed Co", json.dumps(payload), "final rows are excluded")
@@ -465,6 +533,7 @@ class DateMath(TrackerTestCase):
         companies = [r["company"] for r in rows]
         self.assertNotIn("Chased Co", companies, "two follow-ups sent: at max")
         self.assertNotIn("Draft Co", companies, "drafted rows are never chased")
+        self.assertNotIn("Ready Co", companies, "ready rows are never chased either")
         self.assertNotIn("Recent Co", companies, "9 days is under the 10-day threshold")
 
     def test_followups_marker_count_is_case_and_space_tolerant(self):

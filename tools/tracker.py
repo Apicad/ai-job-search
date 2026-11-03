@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """Deterministic CLI over job_search_tracker.csv.
 
-Lets /apply, /outcome and /gmail-sync read and edit single tracker rows
-without re-emitting the whole CSV by hand. Rules mirror the specs: the
-14-column header from /apply Step 6b, the status vocabulary from /outcome,
-the header-line-only `,deadline` migration, "never move a row backwards",
-dated notes, the undated `redrafted` marker, and the stale / deadline /
-follow-up date math.
+Lets /apply, /quick-apply, /outcome and /gmail-sync read and edit single
+tracker rows without re-emitting the whole CSV by hand. Rules mirror the
+specs: the 14-column header from /apply Step 6b, the status vocabulary from
+/outcome (`ready` and `drafted` are the two unsent statuses: nothing was
+submitted, so no follow-up or staleness clock runs on them), the
+header-line-only `,deadline` migration, "never move a row backwards", dated
+notes, the undated `redrafted` marker, and the stale / deadline / follow-up
+date math.
 
 Every untouched data row is written back byte-for-byte (its raw text is kept
 on read); only rows this tool edits are re-serialised, with minimal quoting.
@@ -20,6 +22,8 @@ Usage examples:
     python tools/tracker.py init
     python tools/tracker.py find --company acme --role "ml engineer" --open
     python tools/tracker.py add --date 2026-11-03 --company Acme --role "ML Engineer" --fit-rating 82
+    python tools/tracker.py add --date 2026-11-03 --company Acme --role "ML Engineer" --status ready
+    python tools/tracker.py list --status ready
     python tools/tracker.py update 3 --set status=applied --set date=2026-11-04 --note "2026-11-04 submitted via portal"
     python tools/tracker.py followups --today 2026-11-03 --quiet-days 10 --max 2
     python tools/tracker.py --tracker /tmp/t.csv stale --today 2026-11-03 --days 30
@@ -58,6 +62,7 @@ HEADER_LINE = ",".join(HEADER)
 
 # /outcome "Tracker status vocabulary", in order.
 STATUSES = [
+    "ready",
     "drafted",
     "applied",
     "interview",
@@ -70,16 +75,21 @@ STATUSES = [
 ]
 FINAL_STATUSES = ["hired", "rejected", "no_response", "offer_declined", "withdrawn"]
 OPEN_STATUSES = [s for s in STATUSES if s not in FINAL_STATUSES]
+# Open, but nothing was sent: `ready` (pre-drafted by /quick-apply, awaiting the
+# user's approval) and `drafted` (documents written, not yet submitted). No
+# follow-up or staleness clock runs on these; only the deadline clock does.
+NOT_SENT_STATUSES = ("ready", "drafted")
 # Accepted on read only, never written.
 LEGACY_ALIASES = {"no response": "no_response", "offer declined": "offer_declined"}
 
-# "Never move it backwards": drafted < applied < interview < offer < terminal.
-_TERMINAL_RANK = 4
+# "Never move it backwards": ready < drafted < applied < interview < offer < terminal.
+_TERMINAL_RANK = 5
 STATUS_ORDER = {
-    "drafted": 0,
-    "applied": 1,
-    "interview": 2,
-    "offer": 3,
+    "ready": 0,
+    "drafted": 1,
+    "applied": 2,
+    "interview": 3,
+    "offer": 4,
 }
 for _final in FINAL_STATUSES:
     STATUS_ORDER[_final] = _TERMINAL_RANK
@@ -511,10 +521,18 @@ def cmd_update(args):
     warnings = []
     if "status" in updates:
         _check_status_transition(before["status"], updates["status"], args.force)
-        if normalize_status(before["status"]) == "drafted" and updates["status"] != "drafted" and "date" not in updates:
+        current = normalize_status(before["status"])
+        # Warn only when the row leaves the unsent set: ready -> drafted keeps
+        # its "drafted on" date (both are unsent), so no warning there.
+        if (
+            current in NOT_SENT_STATUSES
+            and updates["status"] not in NOT_SENT_STATUSES
+            and "date" not in updates
+        ):
             warnings.append(
-                "status left drafted but date was not set: /outcome and /gmail-sync "
-                "overwrite date with the actual submission date (pass --set date=YYYY-MM-DD)"
+                f"status left {current} (nothing was sent yet) but date was not set: "
+                "/outcome and /gmail-sync overwrite date with the actual submission "
+                "date (pass --set date=YYYY-MM-DD)"
             )
 
     if not updates and args.note is None and args.marker is None:
@@ -551,12 +569,13 @@ def _today(args):
 
 
 def cmd_stale(args):
+    """Open rows quiet for N+ days; the unsent statuses (ready, drafted) never qualify."""
     tracker = Tracker.load(args.tracker)
     today = _today(args)
     out = []
     for index, record in tracker.data_records():
         row = tracker.row_dict(index, record)
-        if not row["is_open"] or normalize_status(row["status"]) == "drafted":
+        if not row["is_open"] or normalize_status(row["status"]) in NOT_SENT_STATUSES:
             continue
         last = latest_activity(row)
         if last is None:
@@ -577,6 +596,12 @@ def cmd_stale(args):
 
 
 def cmd_deadlines(args):
+    """Open rows whose deadline passed or is due within N days.
+
+    `drafted_past_deadline` keeps its key for /outcome Step 1.3 but holds every
+    unsent row (`ready` as well as `drafted`) whose deadline has passed: documents
+    written, never sent, and now unsendable.
+    """
     tracker = Tracker.load(args.tracker)
     today = _today(args)
     passed, due_soon, drafted_past = [], [], []
@@ -599,7 +624,7 @@ def cmd_deadlines(args):
         }
         if days_left < 0:
             passed.append(entry)
-            if normalize_status(row["status"]) == "drafted":
+            if normalize_status(row["status"]) in NOT_SENT_STATUSES:
                 drafted_past.append(entry)
         elif days_left <= args.within:
             due_soon.append(entry)
@@ -608,12 +633,13 @@ def cmd_deadlines(args):
 
 
 def cmd_followups(args):
+    """Follow-up candidates per /outcome Step 2b; unsent rows (ready, drafted) are never chased."""
     tracker = Tracker.load(args.tracker)
     today = _today(args)
     out = []
     for index, record in tracker.data_records():
         row = tracker.row_dict(index, record)
-        if not row["is_open"] or normalize_status(row["status"]) == "drafted":
+        if not row["is_open"] or normalize_status(row["status"]) in NOT_SENT_STATUSES:
             continue
         sent = followups_sent(row["notes"])
         if sent >= args.max:
@@ -678,7 +704,11 @@ def build_parser():
     p.add_argument("--sector", default="")
     p.add_argument("--role-type", dest="role_type", default="")
     p.add_argument("--channel", default="", help="e.g. portal, online (empty when unknown)")
-    p.add_argument("--status", default="drafted")
+    p.add_argument(
+        "--status",
+        default="drafted",
+        help="one of the /outcome vocabulary (default: drafted; /quick-apply writes ready)",
+    )
     p.add_argument("--contact-person", dest="contact_person", default="")
     p.add_argument("--fit-rating", dest="fit_rating", default="", help="bare integer 0-100")
     p.add_argument("--notes", default="")
@@ -703,17 +733,20 @@ def build_parser():
     p.add_argument("--status")
     p.set_defaults(func=cmd_list, company=None, role=None)
 
-    p = sub.add_parser("stale", help="open, non-drafted rows quiet for N+ days")
+    p = sub.add_parser("stale", help="open rows quiet for N+ days (ready/drafted never qualify: nothing was sent)")
     p.add_argument("--days", type=int, default=30)
     p.add_argument("--today", required=True, help="YYYY-MM-DD")
     p.set_defaults(func=cmd_stale)
 
-    p = sub.add_parser("deadlines", help="open rows whose deadline passed or is due soon")
+    p = sub.add_parser(
+        "deadlines",
+        help="open rows whose deadline passed or is due soon (drafted_past_deadline covers ready and drafted)",
+    )
     p.add_argument("--within", type=int, default=7)
     p.add_argument("--today", required=True, help="YYYY-MM-DD")
     p.set_defaults(func=cmd_deadlines)
 
-    p = sub.add_parser("followups", help="follow-up candidates per /outcome Step 2b")
+    p = sub.add_parser("followups", help="follow-up candidates per /outcome Step 2b (ready/drafted never chased)")
     p.add_argument("--today", required=True, help="YYYY-MM-DD")
     p.add_argument("--quiet-days", dest="quiet_days", type=int, default=10)
     p.add_argument("--max", type=int, default=2, help="skip rows with this many follow-ups sent")

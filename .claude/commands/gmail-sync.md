@@ -31,7 +31,7 @@ Confirm the Gmail MCP tools (`mcp__claude_ai_Gmail__*`) are available. If not, t
 2. Read `gmail_sync/state.json` (create if missing: `{"last_sync": null, "processed_message_ids": []}`).
 3. Build the set of **open applications**: tracker rows whose `status` is not **Final** (per the **Tracker status vocabulary** in `/outcome`). For each, derive its archive folder `documents/applications/<company>_<role>/` by the **Subfolder naming** rule in `documents/README.md` and check whether `outcome.md` exists there. Reuse this exact derived path for any write in Step 7a.
 
-   **`drafted` rows stay in this set, and are the reason it is worth searching.** `/apply` writes them but never submits; the user submits by hand and may not think to run `/outcome`. A reply arriving against a row still marked `drafted` is exactly that case, and the row holds the company name the search needs.
+   **`drafted` rows stay in this set, and are the reason it is worth searching.** `/apply` writes them but never submits; the user submits by hand and may not think to run `/outcome`. A reply arriving against a row still marked `drafted` is exactly that case, and the row holds the company name the search needs. `ready` rows stay too (pre-drafted by `/quick-apply`, awaiting approval): the user may approve and submit by hand without running `/quick-apply approve`, and the same reply catches it.
 4. If `$ARGUMENTS` named a company, filter this set to the matching row(s) (case-insensitive). No match → tell the user and stop, do not guess.
 
 ---
@@ -69,7 +69,7 @@ For a matched message, classify by content (require the signal phrase in the sub
 
 | Signal | Example phrasing | Tracker `status` | `outcome.md` action |
 |---|---|---|---|
-| Application ack | "we've received your application" | `drafted` -> `applied`, otherwise *(no change)* | On a `drafted` row this is the one email that proves the user submitted by hand, and it arrives within a day of them doing so - propose the move with `date` set to the email's date. On any other status it is noise. |
+| Application ack | "we've received your application" | `ready`/`drafted` -> `applied`, otherwise *(no change)* | On a `drafted` (or `ready`) row this is the one email that proves the user submitted by hand, and it arrives within a day of them doing so - propose the move with `date` set to the email's date. On any other status it is noise. |
 | OA / assessment | "online assessment", "coding challenge", "complete your assessment", HackerRank/Codility links | `interview` | Tick nearest matching stage checkbox (or add a Notes line if no checkbox fits - assessments aren't always a listed stage) |
 | Interview invite/scheduled | "schedule a call", "phone screen", "technical interview", "next round", "onsite", "final round" | `interview` | Tick the matching stage checkbox with the email's date |
 | Offer extended | "pleased to offer", "extend an offer", "offer letter" | `offer` | Tick "Offer received" checkbox. **Never propose `hired` or `offer_declined` from an email** - accepting or declining is the user's decision, not something to infer. Flag prominently in the Step 6 summary as needing the user's decision, separate from the plain approve/skip table. |
@@ -144,7 +144,7 @@ For every row the user approved:
 
 1. **Tracker (`job_search_tracker.csv`):** `python tools/tracker.py update <row> --set status=<status> --note '<date> gmail-sync: <signal> ("<email subject>")'` updates the matched row's `status` column per the Step 5 table and appends that note to `notes` (find the row index with `python tools/tracker.py find --company "<company>" --open`). Never restructure the CSV, reorder rows, or touch unrelated rows - same rule `/outcome` follows, and the tool rewrites only the named columns of the one row. The rewrite touches only `status`, `notes` (and `date` when the drafted-rule below fires): preserve every other field of the row, parsed or not, so the `deadline` column written by `/apply` Step 6b - or any column added in the future - is never blanked by a status sync.
 
-   **If the matched row was still `drafted`,** also set `date` to the email's date (`--set date=<email date>` on the same call). The employer replying proves the user submitted by hand without running `/outcome`, so the drafting date now in that column is wrong. The email's date is an upper bound on the real submission date, tight for an ack and loose for a rejection weeks later, which is why Step 6 shows it and lets the user supply the actual date instead.
+   **If the matched row was still `drafted` (or `ready`),** also set `date` to the email's date (`--set date=<email date>` on the same call). The employer replying proves the user submitted by hand without running `/outcome`, so the drafting date now in that column is wrong. The email's date is an upper bound on the real submission date, tight for an ack and loose for a rejection weeks later, which is why Step 6 shows it and lets the user supply the actual date instead.
 2. **`outcome.md`:** tick the relevant stage checkbox (adding the date in parentheses) or update `Status`/`Date resolved` per the table. Append a dated entry to `## Notes`, never overwrite existing Notes history:
    ```
    YYYY-MM-DD (via /gmail-sync): <one-line summary of what the email said>. Source: "<subject>" from <sender>, <email date>.
@@ -165,7 +165,7 @@ Add every message ID processed this run - approved, skipped, unmatched, or filte
 
 For open applications with **no** matching activity found this run, check the tracker's `date` column and the most recent dated Notes entry in their `outcome.md`. `python tools/tracker.py stale --days 30 --today <today>` lists the open rows whose tracker-side activity (the `date` column and dated `notes` entries) is 30+ days old; cross-check each against its `outcome.md` Notes before flagging. If the most recent of those is 30+ days old, flag the application as "needs follow-up" in the closing summary below. This is surfaced only - never write anything for staleness.
 
-**Skip `drafted` rows here** - nothing was sent, so no one is late replying (the tool already excludes them).
+**Skip `drafted` rows here** (and `ready` rows) - nothing was sent, so no one is late replying (the tool already excludes both).
 
 ---
 

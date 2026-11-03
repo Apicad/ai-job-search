@@ -62,12 +62,12 @@ Validate the cheap, local precondition before creating anything external. A run 
    | Company | rich text | |
    | Score | number | 0-100 from `rank_score` |
    | Verdict | select | Strong Fit / Good Fit / Moderate Fit / Weak Fit / Poor Fit |
-   | Status | select | `ranked` / `drafted` / `applied` / `interview` / `offer` / `hired` / `rejected` / `no_response` / `offer_declined` / `withdrawn` / `expired` — canonical tracker spellings per **Tracker status vocabulary** in `/outcome`; Notion options grow to match as values appear |
+   | Status | select | `ranked` / `ready` / `drafted` / `applied` / `interview` / `offer` / `hired` / `rejected` / `no_response` / `offer_declined` / `withdrawn` / `expired` — canonical tracker spellings per **Tracker status vocabulary** in `/outcome`; Notion options grow to match as values appear |
    | Fit | select | high / medium / low (scraper quick-fit) |
    | Deadline | date | tracker `deadline` column, falling back to `seen_jobs.json`'s `deadline` when the row has none; omit when neither states one |
    | First seen | date | |
    | Ranked | date | `rank_date` from `seen_jobs.json`; omit when not ranked |
-   | Applied on | date | tracker `date` column; omit when not in the tracker, and omit when the status is `drafted` |
+   | Applied on | date | tracker `date` column; omit when not in the tracker, and omit when the status is `drafted` or `ready` (nothing was sent) |
    | Channel | select | tracker `channel` column (e.g. portal / email / referral); options grow as values appear |
    | CV file | rich text | tracker `cv_file` column - the filename only, never document content |
    | Cover letter | rich text | tracker `cover_letter_file` column - the filename only, never document content |
@@ -100,7 +100,7 @@ Batch politely: if the MCP server rate-limits, back off and continue; report any
 
 The page body is what makes a row worth clicking. Build it **only from stored data and actually fetched content**:
 
-1. **Fit summary** - a short section from `seen_jobs.json` fields: score, verdict, quick-fit level, first-seen and ranked dates. If the job is in the tracker, add the application timeline (date applied, channel, current status, dated notes from the `notes` column) and name the submitted documents from `cv_file`/`cover_letter_file` (filenames only - the documents themselves never sync). **When the status is `drafted`, write "drafted YYYY-MM-DD, not yet submitted" instead of a date applied, and call the files drafts rather than submitted documents** (page bodies are write-once - Step 4.3).
+1. **Fit summary** - a short section from `seen_jobs.json` fields: score, verdict, quick-fit level, first-seen and ranked dates. If the job is in the tracker, add the application timeline (date applied, channel, current status, dated notes from the `notes` column) and name the submitted documents from `cv_file`/`cover_letter_file` (filenames only - the documents themselves never sync). **When the status is `drafted` (or `ready`, which is pre-drafted and awaiting approval), write "drafted YYYY-MM-DD, not yet submitted" instead of a date applied, and call the files drafts rather than submitted documents** (page bodies are write-once - Step 4.3).
 2. **The posting** - WebFetch the job URL and write a readable digest: what the role is, key requirements, practical details (location, deadline, salary if stated). Retry a 403 with browser headers per `.claude/skills/job-application-assistant/09-web-research.md` first. If the fetch still fails or redirects to a listing page, write "Posting no longer available (checked YYYY-MM-DD)" - **never reconstruct a posting from memory**.
 3. **Links** - the posting URL; derive `<company>_<role>` by the **Subfolder naming** rule in `documents/README.md`, and if that archive exists locally, name its path (plain text - the destination cannot link into the filesystem).
 

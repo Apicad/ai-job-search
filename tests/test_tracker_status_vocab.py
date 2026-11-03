@@ -116,6 +116,27 @@ class VocabularyBlockExists(unittest.TestCase):
             "Final, so finality decisions cover them",
         )
 
+    def test_vocabulary_block_defines_ready_as_unsent_before_drafted(self):
+        """`ready` (pre-drafted by /quick-apply, awaiting approval) is open but
+        unsent, and sits before `drafted` so tracker.py's "never move it
+        backwards" lets `/quick-apply approve` advance it without --force."""
+        vocab = section(OUTCOME, VOCAB_ANCHOR)
+        self.assertIn(
+            "`ready`",
+            vocab,
+            "The vocabulary block must list `ready` as a canonical status",
+        )
+        self.assertIn(
+            "precedes `drafted`",
+            vocab,
+            "The vocabulary block must state that `ready` precedes `drafted`",
+        )
+        self.assertIn(
+            "applies to `ready` too",
+            vocab,
+            "The vocabulary block must extend every not-sent rule from `drafted` to `ready`",
+        )
+
     def test_vocabulary_block_defines_open_by_exclusion(self):
         """Open is derived by exclusion from the one explicit Final list, so a new
         status needs updating in a single place and unknown values stay open until

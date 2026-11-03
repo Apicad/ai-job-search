@@ -228,6 +228,30 @@ class DraftedMeansDraftedToEveryReader(unittest.TestCase):
          "/upskill divides by fit_rating, so `72/100` or a verdict word breaks it"),
         (APPLY, "### Step 6b: Record the Application", "append a new row",
          "re-applying after a rejection would overwrite the old application"),
+        # `ready` (pre-drafted by /quick-apply, awaiting approval) is unsent in
+        # exactly the way `drafted` is, so every reader above must name it too.
+        (HTML_REPORT, None, "`ready` → **Drafted**",
+         "a ready row with no bucket is dropped from every statistic"),
+        (OUTCOME, "## Step 2b: Follow-Up Branch", "neither final nor `drafted` (nor `ready`)",
+         "it would chase an employer who received nothing"),
+        (OUTCOME, "## Step 4: Update the Tracker", "`ready` → `drafted` is the one move that keeps the date",
+         "approving a pre-draft would be reported as the application date"),
+        (GMAIL_SYNC, "## Step 2: Load State", "`ready` rows stay too",
+         "a hand-submitted pre-draft would never be matched to the employer's reply"),
+        (GMAIL_SYNC, "## Step 5", "`ready`/`drafted` -> `applied`, otherwise",
+         "an ack against a ready row is the proof it was submitted by hand"),
+        (GMAIL_SYNC, "### Step 7a", "still `drafted` (or `ready`)",
+         "the row would keep the pre-drafting date after being proved submitted"),
+        (GMAIL_SYNC, "## Step 9: Staleness Check", "(and `ready` rows)",
+         "an unapproved pre-draft reported as a forgotten application"),
+        (NOTION_SYNC, None, "omit when the status is `drafted` or `ready`",
+         "an 'Applied on' date for a job never applied to"),
+        (INTERVIEW, "## Step 0: Parse Input", "`ready` and `drafted` are open but nothing was sent",
+         "/interview would offer prep for a process that has not started"),
+        (APPLY, "### Step 6b: Record the Application", "`--status ready`",
+         "/quick-apply writes the same row; if 6b does not say so, the two writers drift"),
+        (APPLY, "### Step 6b: Record the Application", "still `ready` or `drafted`",
+         "re-drafting a ready row would leave its date untouched or move it backwards"),
     ]
 
     def test_every_reader_handles_drafted(self):
