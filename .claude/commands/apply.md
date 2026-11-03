@@ -106,6 +106,14 @@ Also read the most recent existing CV and cover letter files for concrete struct
 
 Write both files to disk. Keep the exact text of both drafts in working memory — you will pass them inline to the reviewer in Step 3 and revise them in Step 4 without re-reading.
 
+Also write the Step 1 requirement/keyword list to `cv/main_<company>_<role>.keywords.json` (covered by the `cv/main_*.*` ignore rule; Step 5 feeds it to the checker and Step 5e deletes it):
+
+```json
+[{"term": "MLOps", "priority": "required", "synonyms": ["ML operations"]}, {"term": "Kubernetes", "priority": "preferred", "synonyms": ["k8s"]}]
+```
+
+Use the posting's own term as `term`; list under `synonyms` only phrasings the CV might truthfully use for the same concept.
+
 ---
 
 ## Step 3: REVIEWER - Research & Critique
@@ -253,80 +261,64 @@ cd ../cover_letters && xelatex -interaction=nonstopmode cover_<company>_<role>.t
 
 If either compile fails, fix the error and re-compile until clean.
 
-### 5b. Inspect layout
+### 5b. Mechanical check (script, every pass)
 
-Read both PDFs via the Read tool and verify:
+Do not Read the PDFs yet. Run the checker on both documents; each call prints one JSON object and exits 1 when anything fails:
+
+```bash
+python tools/check_cv.py cv --pdf cv/main_<company>_<role>.pdf --source cv/main_<company>_<role><CV_EXT> --expect-pages 2 --keywords cv/main_<company>_<role>.keywords.json
+python tools/check_cv.py cover --pdf cover_letters/cover_<company>_<role>.pdf --source cover_letters/cover_<company>_<role><COVER_EXT> --expect-pages 1 --contains "<candidate name>" --allowed-font Raleway
+```
+
+What the JSON tells you (read the `problems` list first):
+
+- `page_count` — CV exactly 2 pages, cover letter exactly 1. The most common failure, caught without rendering a page.
+- `orphans` — a `\cventry` whose title landed on one page and its first bullet on the next, or a `\section` heading isolated at the bottom of a page. Each suspect names the entry and both page numbers.
+- `contact` — email and phone present as **literal text** in the text layer (parsed from `\email{}`/`\phone{}` in the source). Icon-glyph noise like `MOBILE-ALT`/`Envelope` is harmless; a contact detail carried only by an icon or a hyperlink target is invisible to an ATS.
+- `dates` — every `\cventry` date argument reaches the text layer as an ASCII-hyphen range (`05-cv-templates.md` → "Date fields must be ASCII ranges": `2016--2024` ligates to an en-dash and silently loses the range on import).
+- `text_layer` — no `(cid:NNN)` markers, no `�` replacement characters.
+- `fonts` (cover letter) — every embedded font belongs to an allowed family, which is how a bullet list that lost the Raleway font gets caught mechanically.
+- `keywords` (CV) — coverage of the Step 1 list, handled in 5d.
+- `extractor` — `pypdf` or `pdftotext`; record it in the Step 6 report.
+
+**On `ok: false`:** fix the source (`<CV_EXT>`/`<COVER_EXT>`), recompile (5a), re-run this step. Fixes are **LaTeX-specific** and documented once — `05-cv-templates.md` → "Fixing common page-break problems" and "Relevance-weighted cutting" (orphans: `\needspace{5\baselineskip}` before the entry; a trailing section on page 3: `\enlargethispage{2-3\baselineskip}`; real overflow: cut by relevance, never squeeze geometry), and `06-cover-letter-templates.md` for the cover letter (a bullet list must sit outside `\lettercontent{}`, wrapped in the Raleway `\fontspec` block, or it compiles with the wrong font). A custom template's manifest ("Known pitfalls") is the reference for a non-LaTeX toolchain. **On a compile error**, read only `grep -A3 '^!' <file>.log` — never the whole log.
+
+**Availability check:** the checker extracts the text layer with **pypdf** first (BSD, `pip install pypdf`), then Poppler `pdftotext`. If it reports that neither is available, print a one-line warning that the mechanical checks are skipped, run the full visual checklist in 5c instead, do the keyword-coverage check (5d) against your visual Read of the PDF, and note the degraded mode in the Step 6 report. Same graceful-skip pattern as the salary lookup. If a documented fallback still shells out to `pdftotext -layout`, keep the `-enc UTF-8` flag: Xpdf-based builds default to Latin-1 output, and without it a correct non-ASCII CV fails the replacement-character check.
+
+**Custom templates:** `--source` must point at a `.tex` file for the orphan, contact and date parsers. For any other toolchain (registered via `/add-template`) the JSON sets `needs_visual_review: true` and 5c runs the full checklist; page count, text layer and keyword coverage are still checked mechanically.
+
+### 5c. Visual read — exactly once
+
+Only after both checks pass, Read both PDFs via the Read tool **once** — this is the one mandatory visual pass, and it exists for what a text layer cannot show:
 
 **CV (`cv/main_<company>_<role>.pdf`):**
-- [ ] Exactly 2 pages (not 1, not 3)
-- [ ] No orphaned `\cventry` titles — a job/education title line must never sit alone at the bottom of page 1 with its bullets on page 2. This is the most common failure.
-- [ ] Section headings are not isolated at the top of page 2 with only 1-2 lines below
-- [ ] No awkward whitespace gaps
+- [ ] No awkward whitespace gaps; page 2 does not finish early and look thin
+- [ ] No section heading isolated at the top of page 2 with only 1-2 lines below it
 
 **Cover letter (`cover_letters/cover_<company>_<role>.pdf`):**
-- [ ] Exactly 1 page
-- [ ] Signature block visible, not cut off or pushed to a second page
-- [ ] Bullet list font matches surrounding body text (both should be Raleway-Medium)
+- [ ] Signature block visible, not cut off or crowding the margin
+- [ ] Bullet list visibly matches the body text (the checker verified the font *names*; this confirms the rendering)
 
-### 5c. Iterate until clean
+If the JSON said `needs_visual_review: true` (custom template, no `\cventry` parsed, or an orphan suspect the parser could not place), also verify by eye: exactly 2 pages / 1 page, no orphaned entry titles, reading order matches the visual order (multi-column custom templates are where this breaks — tell the user prominently if they are trading ATS compatibility for looks).
 
-If the layout has problems, edit the source files (`<CV_EXT>`/`<COVER_EXT>`) and recompile. Common fixes below are **LaTeX-specific** (stock templates, or a custom LaTeX template) — see `05-cv-templates.md` and `06-cover-letter-templates.md` for full details, and consult the active template's own manifest ("Known pitfalls") for a non-LaTeX toolchain:
+A finding here is fixed in the source, recompiled (5a) and re-checked (5b); repeat the visual read only when the fix moved content across a page boundary, never as a routine loop. Do not proceed to Step 6 until 5b passes and this read is clean.
 
-- **Orphaned CV entry title:** `\usepackage{needspace}` in preamble, then `\needspace{5\baselineskip}` immediately before the problematic `\cventry`
-- **CV spills to page 3 with only a trailing section:** `\enlargethispage{2-3\baselineskip}` before a late section
-- **Substantial content on page 3:** cut content using **relevance-weighted cutting** (see `05-cv-templates.md` → "Relevance-weighted cutting"). Score each candidate line by (a) relevance to THIS posting's keywords and responsibilities, (b) uniqueness (is it duplicated elsewhere?), (c) narrative load (does the cover letter depend on it?). Cut the lowest-total-score line first, regardless of section. Do NOT mechanically apply a static section-based priority order — an older-role bullet that hits posting keywords is worth more than a recent-role bullet that does not.
-- **Cover letter itemize breaks compile or uses wrong font:** close `\lettercontent{}` before the list, wrap the list in `{\raggedright\fontspec[Path = OpenFonts/fonts/raleway/]{Raleway-Medium}\fontsize{11pt}{13pt}\selectfont \begin{itemize}...\end{itemize}\par}`
-- **Cover letter spills to 2 pages:** trim using the same relevance-weighted logic. First cut: sentences that restate what a bullet already said. Second cut: a bullet that does not hit posting keywords. Last resort: a bullet that does hit posting keywords. Never reduce geometry or line spacing.
+### 5d. Keyword decisions (CV)
 
-Do not proceed to Step 6 until both PDFs pass inspection.
-
-### 5d. ATS & keyword verification (CV)
-
-An ATS parser reads the PDF's embedded **text layer**, not the rendered page — a CV that passed visual inspection can still extract as garbage (icon glyphs where the contact details should be, scrambled reading order in multi-column layouts). This step verifies what a parser actually sees. It applies to the **CV only**; cover letters rarely go through keyword screening.
-
-**Availability check:** extract with `python tools/verify_pdf.py` (tries **pypdf** first — BSD, `pip install pypdf` — then Poppler `pdftotext`). If both are missing, print a one-line warning that the mechanical parse check is skipped, do the keyword-coverage check (item 3 below) against your visual Read of the PDF instead, and note the degraded mode in the Step 6 report. Same graceful-skip pattern as the salary lookup. If a documented fallback still shells out to `pdftotext -layout`, keep the `-enc UTF-8` flag: Xpdf-based builds default to Latin-1 output, and without it a correct non-ASCII CV fails the replacement-character check below.
-
-**1. Extract the text layer:**
-
-```bash
-python tools/verify_pdf.py cv/main_<company>_<role>.pdf --dump-text cv/main_<company>_<role>.txt
-```
-
-The command prints `extractor: pypdf` or `extractor: pdftotext`. Record that name in the Step 6 report. Read the `.txt` file. If that tool is unavailable, the Poppler fallback is:
-
-```bash
-cd cv && pdftotext -layout -enc UTF-8 main_<company>_<role>.pdf main_<company>_<role>.txt
-```
-
-**2. Parseability checks** on the extracted text:
-
-- [ ] **Text extracted at all**, with no garbage runs: no `(cid:NNN)` markers, no `�` replacement characters, no stretches of missing text that are visible in the PDF
-- [ ] **Email and phone survive as literal text.** Icon fonts extract as glyph names (the stock template's contact line extracts as `MOBILE-ALT [+XX ...] • Envelope [your.email@...]`) — that noise is harmless, but the actual address and digits must be present. A contact detail carried only by an icon or a hyperlink target (like the `LinkedIn` link text) is invisible to an ATS; the email must be printed as text.
-- [ ] **Reading order matches the visual order** — section headings appear in the same sequence as on the page, and lines from different sections are not interleaved. The stock banking template is single-column and safe; custom templates registered via `/add-template` with sidebars or multi-column layouts are where this breaks.
-- [ ] **Dates recognizable** — each role and degree has its years present in the extraction.
-
-Failures here are template-level problems: fix them in the `<CV_EXT>` source (e.g. print the email as text rather than icon-only), then re-run 5a–5c and re-extract. If a custom template's layout fundamentally scrambles extraction order, tell the user prominently — they may be trading ATS compatibility for looks.
-
-**3. Keyword coverage.** Reuse the required/preferred keyword list you extracted in Step 1 — do not re-derive it. Match each keyword against the extracted text, **in the posting's language** (when the posting's language differs from the CV language — e.g. a Danish posting against an English CV — a concept the CV legitimately covers in its own language counts as synonym-only; note the language difference). Report a table:
+An ATS reads the text layer, and 5b already matched it against the Step 1 keyword list (written to `cv/main_<company>_<role>.keywords.json` in Step 2). The JSON `keywords` block lists `covered`, `synonym_only`, `missing` and `required_missing`; the matcher normalizes punctuation spacing on both sides, so a multi-word phrase reported missing is genuinely absent, not an extractor artifact. Only the **missing** terms need judgment — decide each from the profile and report the table:
 
 | Keyword | Priority | Status | Note |
 |---------|----------|--------|------|
 | ... | required/preferred | covered / synonym-only / missing (have it) / missing (gap) | where it appears, or why absent |
 
 - **covered** — the term appears (verbatim or trivial inflection).
-- **synonym-only** — the concept is present under a different term. If the posting's exact term is truthfully applicable per the profile, prefer the posting's term (ATS keyword matches are often literal).
-- **missing (have it)** — the profile shows the candidate genuinely has this skill but the CV never says it: add it where it fits naturally, preferring experience bullets (concrete evidence) over the profile statement, then re-run 5a–5c.
+- **synonym-only** — the concept is present under a different term. If the posting's exact term is truthfully applicable per the profile, prefer the posting's term (ATS keyword matches are often literal). When the posting's language differs from the CV language (e.g. a Danish posting against an English CV), a concept the CV covers in its own language counts as synonym-only; note the language difference.
+- **missing (have it)** — the profile shows the candidate genuinely has this skill but the CV never says it: add it where it fits naturally, preferring experience bullets (concrete evidence) over the profile statement, then re-run 5a and 5b.
 - **missing (gap)** — a genuine gap: leave it missing. **Never stuff keywords.** This is the same honesty rule the reviewer follows — a gap gets acknowledged in the cover letter's framing, not hidden in the CV.
-
-
-> **Note:** A multi-word phrase reported missing may be a punctuation-spacing artifact between extractors (pypdf sometimes inserts spaces around punctuation that Poppler does not). Re-check against the other extractor before concluding the text is absent.
-
-
-**4. Clean up:** delete the extracted `.txt` file.
 
 ### 5e. Clean up build artifacts
 
-After the final clean compile, delete intermediate build files the compile command left behind — LaTeX toolchains leave `.aux`/`.log`/`.out`; a custom template's toolchain may leave nothing beyond the PDF. Keep the source file and the `.pdf`.
+After the final clean compile, delete intermediate build files the compile command left behind — LaTeX toolchains leave `.aux`/`.log`/`.out`; a custom template's toolchain may leave nothing beyond the PDF — and the `cv/main_<company>_<role>.keywords.json` file from Step 2. Keep the source file and the `.pdf`.
 
 ---
 

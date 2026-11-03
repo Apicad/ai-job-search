@@ -4,6 +4,10 @@
 Text-layer extraction tries pypdf (BSD, optional `pip install pypdf`) first,
 then Poppler `pdftotext` if pypdf is missing, raises, or returns zero
 extractable characters. Poppler remains the fallback.
+
+`extract_pages(pdf_path)` exposes the same extraction one string per page for
+tools that need page positions (tools/check_cv.py uses it to spot orphaned
+entry titles).
 """
 
 import argparse
@@ -51,22 +55,30 @@ def normalize_text(text):
     return " ".join(text.split())
 
 
-def _extract_pypdf(pdf_path):
-    """Return (text, pages) or None if pypdf is unavailable, raises, or yields no text."""
+def _extract_pypdf_pages(pdf_path):
+    """Return one text string per page, or None if pypdf is unavailable,
+    raises, or yields no text at all (so the caller falls back to Poppler)."""
     try:
         from pypdf import PdfReader
     except ImportError:
         return None
     try:
         reader = PdfReader(str(pdf_path))
-        pages = len(reader.pages)
-        text = "\n".join((page.extract_text() or "") for page in reader.pages)
+        pages = [(page.extract_text() or "") for page in reader.pages]
     except Exception:
         return None
     # Harden: treat empty/degraded extraction as failure so we fall back
-    if len(normalize_text(text)) == 0:
+    if len(normalize_text("\n".join(pages))) == 0:
         return None
-    return text, pages
+    return pages
+
+
+def _extract_pypdf(pdf_path):
+    """Return (text, pages) or None if pypdf is unavailable, raises, or yields no text."""
+    pages = _extract_pypdf_pages(pdf_path)
+    if pages is None:
+        return None
+    return "\n".join(pages), len(pages)
 
 
 def _extract_pdftotext(pdf_path):
@@ -85,6 +97,34 @@ def extract_text_layer(pdf_path):
         return text, pages, "pypdf"
     text, pages = _extract_pdftotext(pdf_path)
     return text, pages, "pdftotext"
+
+
+def _split_pdftotext_pages(output):
+    """Split `pdftotext` output on its form-feed page separators.
+
+    Poppler ends every page, including the last, with a form feed, so a
+    trailing empty element is dropped. Any other empty element is a genuinely
+    blank page and is kept so page indexes stay aligned with the PDF.
+    """
+    pages = output.split("\f")
+    if pages and pages[-1] == "":
+        pages.pop()
+    return pages
+
+
+def extract_pages(pdf_path):
+    """Extract the text layer page by page. Returns (pages, extractor_name).
+
+    `pages` is one string per PDF page: pypdf's `page.extract_text()` when
+    pypdf is available and yields text, otherwise `pdftotext -layout -enc UTF-8`
+    output split on form feeds. Raises VerificationError when no extractor can
+    read the PDF (same install hint as `run_tool`).
+    """
+    pages = _extract_pypdf_pages(pdf_path)
+    if pages is not None:
+        return pages, "pypdf"
+    output = run_tool(["pdftotext", "-layout", "-enc", "UTF-8", str(pdf_path), "-"])
+    return _split_pdftotext_pages(output), "pdftotext"
 
 
 def verify_pdf(pdf_path, expected_pages=None, min_chars=1, required_text=(), dump_text=None):

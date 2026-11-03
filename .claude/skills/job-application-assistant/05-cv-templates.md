@@ -1,5 +1,5 @@
 ---
-framework_version: 1.4.3
+framework_version: 1.4.4
 ---
 
 # CV Templates and Tailoring Guide
@@ -234,12 +234,12 @@ Related trap: a bullet whose text begins with a literal `[` must be braced - `\i
 
 ## Compile-and-Inspect Loop (MANDATORY)
 
-After writing the CV and before presenting to the user, always compile and visually inspect the PDF. Iterate until the layout is clean. Workflow:
+After writing the CV and before presenting to the user, always compile and check the PDF. Iterate until the layout is clean. Workflow:
 
 1. Run `lualatex -interaction=nonstopmode main_<company>_<role>.tex`
-2. Check the output page count: must be exactly 2
-3. Read the PDF via the Read tool and visually inspect both pages
-4. Check for **orphaned entries**: a `\cventry` title line must never sit alone at the bottom of page 1 with its bullets on page 2
+2. Run `python tools/check_cv.py cv --pdf main_<company>_<role>.pdf --source main_<company>_<role>.tex --expect-pages 2` and read its JSON. It checks the page count (must be exactly 2), **orphaned entries** (a `\cventry` title line must never sit alone at the bottom of page 1 with its bullets on page 2 — the checker reports the entry and both page numbers), literal contact details, ASCII date ranges and the text layer, without rendering a page
+3. Fix anything it reports in the source and recompile; on a compile error read `grep -A3 '^!' main_<company>_<role>.log`, never the whole log
+4. Once it passes, Read the PDF via the Read tool **once** for whitespace gaps and heading placement — or in full when the JSON says `needs_visual_review: true` (custom template, or an entry the parser could not place)
 
 ### Fixing common page-break problems
 
@@ -264,7 +264,7 @@ Restore the highest-relevance item that was previously cut — a CV that ends mi
 
 ## ATS Parseability
 
-Most employers run CVs through an ATS before a human sees them, and the ATS reads the PDF's embedded **text layer**, not the rendered page. A CV can pass visual inspection and still extract as garbage. After the layout passes the compile-and-inspect loop, verify the text layer:
+Most employers run CVs through an ATS before a human sees them, and the ATS reads the PDF's embedded **text layer**, not the rendered page. A CV can pass visual inspection and still extract as garbage. `tools/check_cv.py` (compile-and-inspect loop step 2) verifies the text layer mechanically — contact details, garbled output, date ranges and keyword coverage below are all in its JSON report. To look at the raw extraction yourself:
 
 ```bash
 python tools/verify_pdf.py cv/main_<company>_<role>.pdf --dump-text cv/main_<company>_<role>.txt
@@ -302,7 +302,7 @@ Two independent causes, both easy to avoid:
 
    Where a genuine range exists, use it even when a single year would be factually accurate - a degree written `1995` is true but imports worse than `1992-1995`. Do not invent a start date you do not have; a lone graduation year is fine, just expect it to be typed in by hand.
 
-**Add this to the step 5d checks**: after extracting the text layer, confirm every experience entry shows a start *and* an end separated by an ASCII hyphen. Because the failure is silent and invisible in the PDF, the candidate otherwise discovers it only while filling in the application form.
+**This is the `dates` check in `tools/check_cv.py`** (`/apply` step 5b): after extracting the text layer it confirms every experience entry shows a start *and* an end separated by an ASCII hyphen. Because the failure is silent and invisible in the PDF, the candidate otherwise discovers it only while filling in the application form.
 
 ## Page Budget - Hard 2-Page Limit
 

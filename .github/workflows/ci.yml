@@ -169,6 +169,13 @@ jobs:
         run: |
           python3 tools/verify_pdf.py cv/main_example.pdf --min-chars 100
           python3 tools/verify_pdf.py cover_letters/cover_example.pdf --min-chars 100
+      - name: Mechanical layout/ATS checks (tools/check_cv.py on real PDFs)
+        # The only place check_cv.py meets a compiled PDF in CI. Page counts are
+        # not asserted here (forks personalize main_example.tex); the upstream-only
+        # step below pins them.
+        run: |
+          python3 tools/check_cv.py cv --pdf cv/main_example.pdf --source cv/main_example.tex --expect-pages 0
+          python3 tools/check_cv.py cover --pdf cover_letters/cover_example.pdf --source cover_letters/cover_example.tex --expect-pages 0
       - name: Assert stock PDF structure (upstream template only)
         if: github.repository == 'MadsLorentzen/ai-job-search'
         run: |
@@ -181,6 +188,11 @@ jobs:
             --pages 1 \
             --contains 'your.email@example.com' \
             --contains 'Dear [Hiring Manager / Team]'
+          python3 tools/check_cv.py cv --pdf cv/main_example.pdf \
+            --source cv/main_example.tex --expect-pages 2
+          python3 tools/check_cv.py cover --pdf cover_letters/cover_example.pdf \
+            --source cover_letters/cover_example.tex --expect-pages 1 \
+            --allowed-font Raleway --allowed-font Lato
 
   discover-clis:
     # The matrix is discovered, not hardcoded, so a portal CLI added in a fork
