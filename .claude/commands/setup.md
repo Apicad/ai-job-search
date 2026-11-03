@@ -8,7 +8,7 @@ There are three paths into setup. Step 0 picks the right one; all three converge
 
 ## Step 0: Welcome & Choose Path
 
-If `$ARGUMENTS` contains `--section <name>`, skip directly to that section in Path C for an update-only flow. Do not run the path-selection prompt below.
+If `$ARGUMENTS` contains `--section <name>`, skip directly to that section in Path C for an update-only flow. Do not run the path-selection prompt below. `--section screening` is the smallest re-run: ask only the screening questions from Path C Section 7, rewrite the `## Screening Answers` table in `01-candidate-profile.md` (rows the user does not answer stay blank), then run `python tools/export_profile.py` so `profile.json` matches.
 
 Otherwise, first check where this working copy would publish to — **before anything is
 written, not after** (the Step 4 privacy note fires only once every file is already on
@@ -239,6 +239,7 @@ Documents cover skills, experience, education, references, and behavioral signal
 - Deal-breakers and must-haves
 - Languages you work in professionally, with proficiency levels (only if not already extracted from `cv/` or `linkedin/` above) - this feeds the Language Gate in `04-job-evaluation.md`, so ask directly rather than skipping it
 - Salary expectations / baseline (optional)
+- Screening answers (use the questions from Path C Section 7's "Screening answers" list below) - these are written verbatim into the `## Screening Answers` table in `01-candidate-profile.md`; the salary figure above is persisted there too, so ask it once
 - Commute or location constraints (if not visible from CV)
 - Job search configuration (use the questions from Path C Section 9 below)
 
@@ -253,7 +254,7 @@ If the user provides a single CV/resume:
 1. Read the document thoroughly.
 2. Extract all structured information: name, contact, education, experience, skills, languages, publications, awards.
 3. Present a summary of what was extracted.
-4. Ask follow-up questions for gaps (behavioral profile, career goals, deal-breakers, languages and proficiency levels if not already extracted, salary expectations, references).
+4. Ask follow-up questions for gaps (behavioral profile, career goals, deal-breakers, languages and proficiency levels if not already extracted, salary expectations, the screening answers from Path C Section 7, references).
 5. Proceed to Step 3 (file generation).
 
 ---
@@ -320,6 +321,17 @@ If not, ask behavioral questions:
 - What environments to avoid
 - Commute/location constraints
 
+**Screening answers.** Application forms ask the same short factual questions every time, and `/quick-apply` copies the stored answers verbatim rather than inventing one, so collect them here. Explain that each answer is a statement they sign in the form, that any row they would rather decide per application can stay blank (a blank is reported as "ASK USER" at fill time, never guessed), and that demographic/EEO questions are deliberately not asked - they answer those directly in the form. Ask, in the user's own words:
+- Work authorisation (e.g. "US citizen, no sponsorship needed", "EU citizen", "needs visa sponsorship")
+- Notice period / earliest start (e.g. "2 weeks", "3 months", "immediately")
+- Salary expectation, with currency and basis (annual/monthly, gross) - this is the salary figure from the bullet above; it is persisted only in the `## Screening Answers` table of `01-candidate-profile.md`, so do not ask it twice
+- Willing to relocate (yes / no / "within <region>")
+- Remote / hybrid / on-site preference
+- Portfolio URL (or blank)
+- How did you hear about us - the default answer, e.g. "Company careers page"
+
+These go into the `## Screening Answers` table in `01-candidate-profile.md`, one row per question, answer copied as given. Keep the shipped rows even when blank; the user may add rows for questions their market's forms ask (the export keys them by question text, so no code change is needed).
+
 ### Section 8: References (optional)
 For each reference:
 - Name, title, company, email, phone
@@ -353,7 +365,7 @@ Once data collection is complete, generate or finish populating the following fi
 Replace all `[PLACEHOLDER]` tokens with the user's actual information. Keep the structure, workflow, and verification checklist intact.
 
 ### 2. Populate `01-candidate-profile.md` *(Path B and C; skip if Path A populated it)*
-Write the full candidate profile with structured sections: Identity (including Languages, with levels), Education, Professional Experience, Independent Projects, Technical Skills, Publications, Awards, References.
+Write the full candidate profile with structured sections: Identity (including Languages, with levels), Screening Answers, Education, Professional Experience, Independent Projects, Technical Skills, Publications, Awards, References. The salary expectation asked in Section 7 (or Path A's follow-up questions) is persisted in the Screening Answers table - it lives nowhere else, so fill that row rather than dropping the figure. Keep the table's exact layout (`| Question | Answer |`): `tools/export_profile.py` parses it, and a row left unanswered must stay blank rather than hold a guess. Path A: this section is a gap `/setup` always fills after the writes, whether or not the rest of the file was already populated.
 
 ### 3. Populate `02-behavioral-profile.md` *(Path B and C; skip if Path A populated it)*
 Write the behavioral profile based on assessment results or synthesized answers.
@@ -387,6 +399,8 @@ Replace all placeholder tokens in the search queries file with the user's actual
   - Priority 3: Adjacent roles they could pivot into
   - Priority 4: Broader roles (wider net)
 
+Once the files above are written, then run `python tools/export_profile.py` to regenerate `profile.json` at the repo root - the machine-readable copy of `01-candidate-profile.md` (identity, languages, education, experience dates, years of experience, screening answers) plus the `CV language` from `CLAUDE.md` that `/quick-apply` reads at fill time. It is gitignored personal data. The command exits 1 and names the fields if `[PLACEHOLDER]` tokens remain anywhere outside the Screening Answers table (fix the file rather than passing `--allow-placeholders`); blank screening rows are allowed and come back under `"unanswered"`, so show that list to the user and offer to fill the rows now. Any later edit to `01-candidate-profile.md` needs the same command again (`python tools/export_profile.py --check` reports when the export is stale).
+
 ---
 
 ## Step 4: Confirm & Next Steps
@@ -403,6 +417,7 @@ Present a summary:
 > - `.claude/skills/job-application-assistant/07-interview-prep.md` - STAR examples from your experience
 > - `cv/main_example.tex` - Your LaTeX CV template
 > - `.claude/skills/job-scraper/search-queries.md` - Job search queries for `/scrape`
+> - `profile.json` - Machine-readable export of your profile and screening answers for `/quick-apply` (gitignored; regenerate with `python tools/export_profile.py` after editing `01-candidate-profile.md`)
 >
 > **Privacy note:** the files above now contain your personal data and are *tracked by git*.
 > A GitHub fork of the template is always public (forks of public repos cannot be made
@@ -413,6 +428,7 @@ Present a summary:
 > - Run `/scrape` to search for matching jobs right now
 > - Run `/apply` with a job posting URL to see the full application workflow
 > - Run `/setup --section search` later to update your search queries as your priorities evolve
+> - Run `/setup --section screening` to change your screening answers (salary, notice period, work authorisation, ...) - it re-exports `profile.json` for you
 
 If Path A left any STAR stubs in `07-interview-prep.md`, also note:
 
@@ -427,6 +443,6 @@ If Path A left any STAR stubs in `07-interview-prep.md`, also note:
 - Path A labels inferred behavioral or style additions so the user can review them critically before relying on them.
 - Each section in Path C is a natural conversation, not a form. The user can skip optional sections.
 - Synthesize answers into structured formats (the user does not need to know markdown or LaTeX).
-- Can be re-run with `--section <name>` to update specific sections (e.g., `/setup --section search` to reconfigure job search queries without re-doing the full profile).
+- Can be re-run with `--section <name>` to update specific sections (e.g., `/setup --section search` to reconfigure job search queries without re-doing the full profile, `/setup --section screening` to update only the Screening Answers table and re-export `profile.json`).
 - Section 9 (search) in Path C, and the equivalent follow-up questions in Path A, proactively suggest role types the user may not have considered.
 - At the end, suggest running `/scrape` and `/apply` with a test job posting.

@@ -1,5 +1,5 @@
 ---
-framework_version: 1.1.1
+framework_version: 1.2.0
 ---
 
 # Candidate Profile
@@ -26,6 +26,22 @@ a hard no, not a gap to smooth over. -->
 | Language | Level | Notes |
 |----------|-------|-------|
 | [LANGUAGE] | [LEVEL, e.g. "Native" / "C2" / "B1/B2 (conversational)"] | [optional] |
+
+## Screening Answers
+<!-- Short factual answers ATS forms ask on every application. /setup fills this; /quick-apply
+copies these verbatim into form_fields.txt and the browser fill - it never invents one. Leave a
+row blank rather than guess: a blank is reported as "ASK USER" at fill time. Demographic/EEO
+questions are deliberately absent: the user answers those directly in the form. -->
+
+| Question | Answer |
+|----------|--------|
+| Work authorisation | [e.g. "US citizen, no sponsorship needed"] |
+| Notice period / earliest start | [e.g. "2 weeks" / "immediately"] |
+| Salary expectation | [YOUR_SALARY_EXPECTATION, with currency and basis] |
+| Willing to relocate | [yes / no / "within <region>"] |
+| Remote / hybrid / on-site preference | [...] |
+| Portfolio URL | [URL or blank] |
+| How did you hear about us (default) | [e.g. "Company careers page"] |
 
 ## Education
 

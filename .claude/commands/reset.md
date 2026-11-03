@@ -77,8 +77,9 @@ The following files are NOT touched (they contain framework rules, not candidate
   - 03-writing-style.md
   - 06-cover-letter-templates.md
 
-Outside the profile scope, still holding your personal data: CLAUDE.md and
-cv/main_example.tex. This scope covers skill files only.
+Outside the profile scope, still holding your personal data: CLAUDE.md,
+cv/main_example.tex, profile.json (the export tools/export_profile.py writes)
+and any cv/base_*.tex. This scope covers skill files only.
 ```
 
 ### If scope includes `documents`:
@@ -140,6 +141,8 @@ Wait for the user's response.
 <!-- Run /setup to populate this file -->
 
 ## Identity
+
+## Screening Answers
 
 ## Education
 
@@ -266,7 +269,7 @@ Then tell the user what to do next based on what was reset:
 **If profile was reset:**
 > The skill files are now blank. Run `/setup` to repopulate them. The command auto-detects any files in your `documents/` folder and offers to read from there; otherwise it walks you through a CV import or interactive interview.
 >
-> Note that `CLAUDE.md` and `cv/main_example.tex` are outside the `profile` scope and still hold your personal data. If you are handing this fork over or making it public, clear them by hand.
+> Note that `CLAUDE.md`, `cv/main_example.tex`, `profile.json` (the gitignored export `tools/export_profile.py` writes from `01-candidate-profile.md`, including your screening answers) and any `cv/base_*.tex` base CVs are outside the `profile` scope and still hold your personal data. If you are handing this fork over or making it public, clear them by hand - `profile.json` and `cv/base_*.tex` can simply be deleted; the next `/setup` and `/quick-apply init` recreate them.
 
 **If documents were reset:**
 > The `documents/` folder is now empty. Add your career documents and run `/setup` to populate your profile. See `documents/README.md` for instructions on what to put where.
