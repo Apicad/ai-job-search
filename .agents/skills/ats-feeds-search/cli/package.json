@@ -1,0 +1,20 @@
+{
+  "name": "ats-feeds-cli",
+  "version": "1.0.0",
+  "description": "CLI that reads the official public JSON job-board APIs (Greenhouse, Lever, Ashby, SmartRecruiters, Workable) for a watchlist of companies - no scraping, no login, zero runtime dependencies.",
+  "type": "module",
+  "main": "src/cli.ts",
+  "bin": {
+    "ats-feeds-search": "src/cli.ts"
+  },
+  "scripts": {
+    "start": "bun run src/cli.ts",
+    "test": "bun test --timeout 30000",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "@types/bun": "1.3.14"
+  }
+}

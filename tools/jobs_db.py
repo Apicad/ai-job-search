@@ -939,7 +939,12 @@ def build_parser():
     p = sub.add_parser("upsert", help="add new entries from a portal CLI JSON output")
     p.add_argument("--from", dest="from_path", required=True, help="portal CLI JSON ('-' for stdin)")
     p.add_argument("--portal", required=True, help="portal skill name, e.g. linkedin-search")
-    p.add_argument("--source", required=True, choices=("cli", "websearch"))
+    p.add_argument(
+        "--source",
+        required=True,
+        choices=("cli", "websearch", "email"),
+        help="provenance: cli (portal CLI or MCP output), websearch (Step 1c fallback), email (/gmail-sync job-alert digests)",
+    )
     p.add_argument(
         "--since",
         help=(
