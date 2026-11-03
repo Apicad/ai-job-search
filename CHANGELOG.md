@@ -53,6 +53,38 @@ per-file diff commands.
 
 ### Added
 
+- **`/quick-apply` - the fast application tier (pre-draft, approve, pre-fill; never submits)**.
+  For jobs `/rank` scored at or above a threshold (default 60, vetoes excluded) it stamps a
+  per-job CV from a **base CV per role family** (`cv/base_<family>.tex`, built by
+  `/quick-apply init`, gitignored) with three bounded edits, writes
+  `documents/applications/<company>_<role>/form_fields.txt` per `08-application-forms.md`,
+  runs `/apply` Step 5 and 6b by reference, and records a tracker row with the new status
+  **`ready`**. `/quick-apply approve` moves approved rows to `drafted`; on a desktop session
+  with Claude in Chrome (or the built-in browser) connected, `/quick-apply fill` pre-fills the
+  employer's ATS form from `profile.json` and `form_fields.txt` and **stops before Submit** -
+  never clicks Submit/Send/Apply, never signs in, never solves a CAPTCHA, never touches
+  demographic/EEO fields, never Easy Apply; `/quick-apply submitted` records the user's own
+  submission as `applied`. Supporting pieces:
+  - **`ready` tracker status** (open, non-final, precedes `drafted`; every "not sent" rule that
+    names `drafted` applies to it) in `tools/tracker.py` and every reader (`/outcome`,
+    `/apply` 6b, `/html-report`, `/notion-sync`, `/gmail-sync`, `/interview`).
+  - **Screening Answers** table in `01-candidate-profile.md` (1.1.1 → 1.2.0; work
+    authorisation, notice period, salary expectation - which `/setup` asked for but never
+    persisted - relocation, remote preference, portfolio URL, "how did you hear"), asked by
+    `/setup` (`--section screening` to re-run) and exported by **`tools/export_profile.py`** to
+    `profile.json` (gitignored) so the fill step types exact strings, never re-typed from memory.
+  - **`tools/base_cv.py`** (`list`, `slug`, `stamp`) and the base-CV convention in
+    `05-cv-templates.md` (1.5.0 → 1.6.0): a base ends its profile statement with `[EMPLOYER]`
+    and must already pass `/apply` Step 5b at 2 pages.
+  - **`08-application-forms.md`** (1.0.0 → 1.1.0): fixed output path, a "screening answers"
+    field type (copied, never drafted; blanks say `ASK USER`; EEO questions listed under
+    `LEFT FOR YOU`, never answered), and a machine-parsable `## FIELD:` layout.
+  - **Security**: `SECURITY.md` documents the pre-fill boundary; `tools/security_guards.py`
+    allowlists only the read/navigate Claude-in-Chrome tools and now **refuses** any
+    page-writing or server-wide browser permission (`form_input`, `computer`,
+    `javascript_tool`, `upload_file`, bare `mcp__claude-in-chrome`) in `settings.json` or its
+    own allowlist - the permission prompt on those is the per-step human check. New ignore
+    rules: `cv/base_*.*`, `profile.json`. `AGENTS.md` 1.1.0 → 1.2.0 (tier row).
 - **`ats-feeds-search` portal skill** - official public job-board JSON APIs of Greenhouse,
   Lever, Ashby, SmartRecruiters and Workable (experimental) for a company watchlist
   (`companies.json`, gitignored). No HTML, no login, descriptions included. `/scrape` Step

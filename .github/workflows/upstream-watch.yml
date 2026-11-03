@@ -11,7 +11,8 @@
 # fork "applies cleanly" is not "correct" - a commit for portals the fork
 # dropped can cherry-pick fine and still be wrong, and that silent-wrong case
 # is worse than a conflict. Merges stay a human decision, the same posture
-# /apply keeps (it drafts, never submits). Keep it that way.
+# /apply and /quick-apply keep (they draft and pre-fill, never submit). Keep
+# it that way.
 #
 # This is the commit-level companion to tools/check_upstream_updates.py, which
 # tracks personalized-file version stamps. Two tools, two questions.

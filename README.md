@@ -146,8 +146,9 @@ Postings are treated as untrusted input (the workflow follows no instructions em
 
 ## Other commands
 
-`/setup`, `/scrape`, and `/apply` form the core workflow. Ten more commands extend it once your profile is in place:
+`/setup`, `/scrape`, and `/apply` form the core workflow. Eleven more commands extend it once your profile is in place:
 
+- **`/quick-apply`** is the fast tier for jobs `/rank` already scored well: it pre-drafts a per-job CV from a base CV per role family (`cv/base_<family>.tex`, built once by `/quick-apply init`) plus the form answers an ATS asks for - screening answers copied verbatim from the `Screening Answers` table in your profile, free-text fields drafted under `08-application-forms.md`'s rules - and records each as a `ready` tracker row for you to approve in a batch. On a desktop session with Claude in Chrome connected, `/quick-apply fill` then pre-fills the employer's ATS form from those files and **stops before Submit**: it never clicks Submit, never signs in, never answers demographic questions, and leaves the CV attach to you where the browser cannot do it. Full `/apply` (reviewer agent, company research, cover letter) stays the path for your top picks.
 - **`/interview`** preps you for a scheduled interview on a tracked application. It builds a stage-specific prep pack from the application's archive (the exact posting, the CV and cover letter the interviewer actually read, feedback recorded from earlier rounds), researches the company and interviewers with a verify-before-use rule, maps likely questions to your STAR examples, and offers a mock interview following the roleplay protocol in `07-interview-prep.md`. Gaps get honest bridge answers, never invented experience.
 - **`/outcome`** records what happened to an application - interview stages, offers, rejections, silence. It archives the submitted CV, cover letter, and posting text into `documents/applications/<company>_<role>/`, keeps `outcome.md` in the format `/setup` Path A parses, and updates the tracker. It also owns the stretch before there is an outcome to record: `/outcome followup` surfaces open applications that have gone quiet (default 10 days), drafts a short channel-appropriate follow-up in your writing style using only claims from the materials you already submitted (drafts only, never sends; at most twice per application), and offers a thank-you note in the same turn an interview stage is recorded. Once a few applications resolve, it points you back to `/setup` to calibrate the fit framework from what actually got interviews.
 - **`/notion-sync`** publishes a one-way, read-only view of the pipeline into a Notion database via the official Notion MCP server (OAuth, no API keys) - one row per ranked job plus every tracked application, with a write-once briefing page per row. The repo files stay the system of record: nothing syncs back, and documents sync as filenames only. Complements `/html-report`: that is the deep offline dashboard you regenerate at your desk; this is the glanceable live view from anywhere Notion runs (desktop, web, phone).
@@ -173,6 +174,7 @@ ai-job-search/
 │   │   ├── expand.md                  # /expand competency enrichment from documents and online presence
 │   │   ├── add-template.md            # /add-template register custom templates (LaTeX, Typst, ...)
 │   │   ├── add-portal.md              # /add-portal generate a job-portal search skill for your market
+│   │   ├── quick-apply.md             # /quick-apply pre-draft, approve, pre-fill (never submits)
 │   │   ├── rank.md                    # /rank triage scraped jobs into a ranked shortlist
 │   │   ├── outcome.md                 # /outcome record application results, archive materials
 │   │   ├── gmail-sync.md              # /gmail-sync auto-detect application status from Gmail
@@ -219,11 +221,13 @@ ai-job-search/
 ├── .github/workflows/ci.yml           # CI: LaTeX smoke compiles, skill lint, CLI typechecks
 ├── salary_lookup.py                   # Salary benchmarking tool (BYO data)
 ├── tools/
+│   ├── base_cv.py                     # Stamp a base CV (cv/base_<family>.tex) into a per-job file for /quick-apply
 │   ├── check_cv.py                    # Mechanical PDF checks for /apply Step 5: pages, orphans, contact, dates, fonts, keywords
 │   ├── check_framework_version.py     # CI check: framework_version bumped when skill files change
 │   ├── check_upstream_updates.py      # Preview which personalized files an upstream update touches
 │   ├── convert_salary_excel.py        # Convert salary Excel to JSON
 │   ├── eval_rank.py                   # Compare a /rank scoring run against a saved golden run (model-tier gate)
+│   ├── export_profile.py              # Export 01-candidate-profile.md to profile.json for /quick-apply's fill step
 │   ├── jobs_db.py                     # CLI over seen_jobs.json + stored posting text (/scrape, /rank, /apply)
 │   ├── lint_skills.py                 # CI lint for skills, commands, settings.json
 │   ├── portals.py                     # List installed portal skills and their enabled toggles (/scrape)

@@ -1,5 +1,5 @@
 ---
-framework_version: 1.1.0
+framework_version: 1.2.0
 ---
 
 # Agent Guidelines: AI Job Search
@@ -32,6 +32,7 @@ alias, or nothing at all). Override routing in that layer, not by editing the sp
 | `/apply` reviewer critique | default (unset) | Grounding audit and voice critique are the quality-bearing steps. |
 | `/apply` drafter (main context) | default (unset) | Writes the artifacts the user sends. |
 | `/scrape` | none | No subagents: portal CLIs run directly and `tools/jobs_db.py` handles state. |
+| `/quick-apply` (base CV + bounded patch, approve queue, pre-fill) | none | No subagents; `tools/check_cv.py` and the user's per-row approval are the gates, and the fill step stops before Submit. |
 
 Changing a tier is a methodology change: run `tools/eval_rank.py compare` against a saved
 golden run before adopting a cheaper route for scoring, and never route the drafter or
