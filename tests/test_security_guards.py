@@ -86,6 +86,39 @@ class PermissionGuardTests(GuardRepoFixture):
         result = run_guards(self.root)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
+    def test_page_writing_browser_permission_fails_even_if_added_to_settings(self):
+        """/quick-apply pre-fills forms in the user's browser and stops before
+        Submit. The permission prompt on the tools that write into a page is the
+        per-step human check behind that rule, so those tools can never be
+        pre-approved - not by settings.json and (next test) not by the allowlist."""
+        for entry in (
+            "mcp__claude-in-chrome__form_input",
+            "mcp__claude-in-chrome__computer",
+            "mcp__claude-in-chrome__javascript_tool",
+            "mcp__claude-in-chrome__upload_file",
+            "mcp__claude-in-chrome",
+            "mcp__remote-devices__Claude_Browser__form_input",
+        ):
+            with self.subTest(entry=entry):
+                self.write_settings(sorted(security_guards.ALLOWED_PERMISSIONS) + [entry])
+                result = run_guards(self.root)
+                self.assertEqual(result.returncode, 1, result.stdout)
+                self.assertIn("can never be pre-approved", result.stdout)
+                self.assertIn(entry, result.stdout)
+
+    def test_allowlist_never_carries_a_page_writing_browser_permission(self):
+        for entry in security_guards.ALLOWED_PERMISSIONS:
+            self.assertFalse(
+                security_guards._is_forbidden_permission(entry),
+                f"{entry!r} writes into a page or covers a whole browser server",
+            )
+        read_only = {
+            "mcp__claude-in-chrome__tabs_context_mcp",
+            "mcp__claude-in-chrome__navigate",
+            "mcp__claude-in-chrome__read_page",
+        }
+        self.assertTrue(read_only <= security_guards.ALLOWED_PERMISSIONS)
+
     def test_invalid_settings_json_fails(self):
         self.settings.write_text("{not json")
         result = run_guards(self.root)

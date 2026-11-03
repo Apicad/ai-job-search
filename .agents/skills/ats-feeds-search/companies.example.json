@@ -1,0 +1,18 @@
+{
+  "_comment": "EXAMPLES ONLY - copy this file to companies.json (git-ignored, personal) and replace the entries with the companies you want to watch. `slug` is the board identifier in the company's hosted careers URL: boards.greenhouse.io/<slug>, jobs.lever.co/<slug>, jobs.ashbyhq.com/<slug>, jobs.smartrecruiters.com/<slug>, apply.workable.com/<slug>. Boards move between vendors; a slug that stops working shows up in the search output's `errors` array.",
+  "companies": [
+    { "name": "Cloudflare", "ats": "greenhouse", "slug": "cloudflare" },
+    { "name": "Airbnb", "ats": "greenhouse", "slug": "airbnb" },
+    { "name": "GitLab", "ats": "greenhouse", "slug": "gitlab" },
+    { "name": "Palantir", "ats": "lever", "slug": "palantir" },
+    { "name": "Plaid", "ats": "lever", "slug": "plaid" },
+    { "name": "Mistral AI", "ats": "lever", "slug": "mistral" },
+    { "name": "OpenAI", "ats": "ashby", "slug": "openai" },
+    { "name": "Ramp", "ats": "ashby", "slug": "ramp" },
+    { "name": "Linear", "ats": "ashby", "slug": "linear" },
+    { "name": "Visa", "ats": "smartrecruiters", "slug": "Visa" },
+    { "name": "Bosch", "ats": "smartrecruiters", "slug": "BoschGroup" },
+    { "name": "Blueground", "ats": "workable", "slug": "blueground" },
+    { "name": "Epignosis", "ats": "workable", "slug": "epignosis" }
+  ]
+}

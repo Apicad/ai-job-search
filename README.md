@@ -198,6 +198,7 @@ ai-job-search/
 │   ├── jobdanmark-search/             # Jobdanmark.dk (Denmark)
 │   ├── jobindex-search/               # Jobindex.dk (Denmark)
 │   ├── jobnet-search/                 # Jobnet.dk (Denmark, government portal)
+│   ├── ats-feeds-search/              # Official Greenhouse/Lever/Ashby/SmartRecruiters/Workable job-board APIs for a company watchlist
 │   ├── linkedin-search/               # LinkedIn public job listings (country-agnostic)
 │   └── freehire-search/               # freehire.me tech job aggregator (multi-market, REST API)
 ├── cv/
@@ -218,12 +219,17 @@ ai-job-search/
 ├── .github/workflows/ci.yml           # CI: LaTeX smoke compiles, skill lint, CLI typechecks
 ├── salary_lookup.py                   # Salary benchmarking tool (BYO data)
 ├── tools/
+│   ├── check_cv.py                    # Mechanical PDF checks for /apply Step 5: pages, orphans, contact, dates, fonts, keywords
 │   ├── check_framework_version.py     # CI check: framework_version bumped when skill files change
 │   ├── check_upstream_updates.py      # Preview which personalized files an upstream update touches
 │   ├── convert_salary_excel.py        # Convert salary Excel to JSON
+│   ├── eval_rank.py                   # Compare a /rank scoring run against a saved golden run (model-tier gate)
+│   ├── jobs_db.py                     # CLI over seen_jobs.json + stored posting text (/scrape, /rank, /apply)
 │   ├── lint_skills.py                 # CI lint for skills, commands, settings.json
+│   ├── portals.py                     # List installed portal skills and their enabled toggles (/scrape)
 │   ├── robots_check.py                # Gate the browser-header retry against robots.txt
 │   ├── security_guards.py             # CI guards: permission allowlist, gitignore rules, manifests
+│   ├── tracker.py                     # Edit job_search_tracker.csv one row at a time (/apply, /outcome, /gmail-sync)
 │   ├── upstream_triage.py             # Sort upstream commits into worth-reviewing vs probably-skip
 │   ├── verify_pdf.py                  # Verify a compiled PDF's page count and extractable text
 │   └── README_SALARY_TOOL.md          # Salary tool setup instructions
@@ -315,6 +321,7 @@ Maintaining a fork adapted to your market or language? Add it to the [Community 
 
 For **country-agnostic** starting points outside Denmark, the repo ships two portal skills alongside the Danish demos:
 
+- **`ats-feeds-search`** — reads the **official public job-board JSON APIs** of Greenhouse, Lever, Ashby, SmartRecruiters and Workable (experimental) for a personal watchlist of companies (`companies.json`, gitignored; `companies.example.json` shipped). No HTML parsing, no login, no ToS exposure, descriptions included - the cheapest and most reliable source for ATS-hosted markets. Zero runtime dependencies. See `.agents/skills/ats-feeds-search/SKILL.md`.
 - **`linkedin-search`** — built on LinkedIn's public, unauthenticated `jobs-guest` endpoints. Field-agnostic, **zero runtime dependencies** (runs with just `bun`), and takes the search location as an explicit flag, so it works for any market out of the box (`-l "Berlin, Germany"`, `-l "Mumbai, Maharashtra, India"`, `-l "Remote"`, …). Intended for **personal use only** — automated access is against LinkedIn's Terms of Service, so keep volume low. See `.agents/skills/linkedin-search/SKILL.md`.
 - **`freehire-search`** — queries the [freehire.me](https://freehire.me) aggregator's public REST API (JSON, no API key). Tech-focused (software, data, engineering, DevOps, remote), multi-market via facet flags (`--region`, `--country`, `--remote`), and **zero runtime dependencies**. Unlike the HTML-scraping Danish portals, results come back structured (skills, seniority, category). The backend is MIT-licensed and [self-hostable](https://github.com/strelov1/freehire) — point `FREEHIRE_API_URL` at your own instance if you prefer. See `.agents/skills/freehire-search/SKILL.md`.
 

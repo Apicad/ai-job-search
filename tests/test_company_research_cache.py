@@ -173,5 +173,79 @@ class TestInterviewWiring(unittest.TestCase):
         )
 
 
+class TestSingleVerificationPass(unittest.TestCase):
+    """Company claims used to be verified up to three times per /apply run: the
+    reviewer researched, the drafter re-verified every claim with fresh
+    WebFetch/WebSearch calls, and the CLAUDE.md checklist asked for independent
+    verification again. The cache records a source URL per finding so the
+    drafter can confirm a claim with one fetch of a known page instead of a new
+    search. These pins keep that single pass from silently growing back."""
+
+    def test_cache_schema_requires_source_urls(self):
+        text = EVALUATION.read_text(encoding="utf-8")
+        body = _sections(text, "##").get("Company Research Cache", "")
+        self.assertIn(
+            "sources.*.url",
+            body,
+            "cache section must require a source URL per finding - the drafter's "
+            "single verification pass re-fetches it instead of searching again",
+        )
+
+    def test_reviewer_prompt_receives_cache_inline_and_records_urls(self):
+        body = _apply_research_step()
+        self.assertIn(
+            "<CACHE_STATUS>",
+            body,
+            "the drafter passes the cache status inline so the reviewer never "
+            "re-reads 04-job-evaluation.md for the cache rule",
+        )
+        self.assertRegex(
+            body,
+            r"[Rr]ecord the URL",
+            "reviewer must record a source URL per finding",
+        )
+
+    def test_reviewer_does_not_reread_files_the_main_context_holds(self):
+        text = APPLY.read_text(encoding="utf-8")
+        sections = _sections(text, "###")
+        body = next(
+            (b for h, b in sections.items() if h.startswith("2. Read Reference Materials")),
+            "",
+        )
+        self.assertNotEqual(body, "", "could not locate the reviewer's reference-materials list")
+        self.assertIn(
+            "do not Read it again",
+            body,
+            "CLAUDE.md is auto-loaded into every subagent; telling the reviewer to "
+            "Read it loads the profile twice",
+        )
+        self.assertIn(
+            "Do NOT read `04-job-evaluation.md`",
+            body,
+            "the reviewer critiques content; the fit evaluation already ran in Step 1",
+        )
+
+    def test_drafter_verifies_against_recorded_urls_only(self):
+        text = APPLY.read_text(encoding="utf-8")
+        step4 = _sections(text, "##").get("Step 4: DRAFTER - Revise Based on Feedback", "")
+        self.assertNotEqual(step4, "", "could not locate apply.md Step 4")
+        self.assertRegex(
+            step4,
+            r"recorded for it",
+            "Step 4 must verify company claims by re-fetching the recorded source URL",
+        )
+        self.assertRegex(
+            step4,
+            r"never a fresh WebSearch",
+            "Step 4 must not re-research - that is the pass the cache exists to remove",
+        )
+        self.assertIn(
+            "one verification pass",
+            step4,
+            "Step 4 must state it is the single verification pass so Step 6's "
+            "checklist does not repeat it",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

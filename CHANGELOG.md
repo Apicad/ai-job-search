@@ -13,8 +13,53 @@ per-file diff commands.
 
 ## [Unreleased]
 
+### Changed
+
+- **Token and wall-clock cuts across `/apply`, `/rank` and `/scrape`** - the workflows no
+  longer do deterministic bookkeeping as model output or re-read what they already hold.
+  - `/apply` Step 5: `tools/check_cv.py` checks page count, orphaned `\cventry` titles,
+    literal contact details, ASCII date ranges, embedded fonts and keyword coverage from
+    the PDF text layer (one JSON report per document); the visual Read of the PDFs happens
+    **exactly once**, after the script passes, instead of on every pass of an open-ended
+    loop. The keyword list is written once to `cv/main_<company>_<role>.keywords.json`
+    (gitignored, deleted in 5e). CI's `latex-smoke` job runs the checker on the compiled
+    examples. `05-cv-templates.md` 1.4.3 → 1.4.4.
+  - `/apply` research once: the drafter passes the `company_research/` cache status and
+    contents inline to the reviewer, the reviewer records a source URL per finding
+    (`sources.*.url` is now required), and Step 4 confirms only the claims it uses by
+    re-fetching those URLs - one pass, never a fresh search. The reviewer no longer reads
+    `04-job-evaluation.md` or re-Reads the auto-loaded `CLAUDE.md`. `04-job-evaluation.md`
+    1.2.6 → 1.2.7.
+  - `/scrape` and `/rank`: `tools/jobs_db.py` owns `seen_jobs.json` (upsert with dedup and
+    `--since`, set-fit, apply-ranking implementing Step 4 in code, expire-sweep, prune) and
+    a per-job **posting store** (`job_scraper/postings/`, gitignored), so posting text is
+    fetched once at scrape time and reused by `/rank` (≤14 days) and `/apply` Step 0
+    (≤7 days). Raw portal output is redirected to `job_scraper/raw/` and never enters
+    context; portal CLIs run as parallel Bash calls, never via search agents;
+    `tools/portals.py` lists portals from frontmatter so disabled ones cost nothing.
+  - `/apply` Step 6b, `/outcome`, `/gmail-sync`: `tools/tracker.py` edits
+    `job_search_tracker.csv` one row at a time with the status vocabulary enforced
+    (never-backwards, header-only migration, undated `redrafted` marker, dated notes).
+  - `05-cv-templates.md` split: page-break fixes and relevance-weighted cutting moved to
+    `05b-latex-troubleshooting.md`, read only when a compiled PDF fails a check
+    (05: 1.4.4 → 1.5.0; 05b: 1.0.0).
+  - Model tiers per stage are documented in `AGENTS.md` (1.0.0 → 1.1.0) and passed as
+    `model:` hints (`/rank` scorers → `sonnet`) for an API-proxy router to act on;
+    `tools/eval_rank.py` compares a scoring run against a saved golden run and gates the
+    switch. The unused `gemini-research-expert` agent is removed.
+  - New permissions for the five tools are allowlisted in `tools/security_guards.py`;
+    add the matching `Bash(python tools/<tool>.py:*)` / `python3` entries to
+    `.claude/settings.json` in your fork to skip the prompt.
+
 ### Added
 
+- **`ats-feeds-search` portal skill** - official public job-board JSON APIs of Greenhouse,
+  Lever, Ashby, SmartRecruiters and Workable (experimental) for a company watchlist
+  (`companies.json`, gitignored). No HTML, no login, descriptions included. `/scrape` Step
+  1b-ii also prefers attached job-data MCP servers (JobDataLake, Indeed, Dice,
+  ZipRecruiter) over WebSearch, `/apply` Step 0 parses schema.org `JobPosting` JSON-LD
+  before stripping HTML, and `/gmail-sync` Step 5b registers job-alert digests into the
+  `/scrape` pool with the new `email` provenance value (`--no-alerts` to skip).
 - **pypdf ATS text-layer fallback** - `/apply` Step 5d and `tools/verify_pdf.py` extract the CV PDF text layer with **pypdf** first (BSD, `pip install pypdf`) so Windows machines without Poppler still get a mechanical parseability check. Poppler `pdftotext -layout -enc UTF-8` remains the fallback; if both are missing the check still degrades to a visual keyword review. No extra cache or installer. `05-cv-templates.md` `framework_version` 1.4.2 → 1.4.3.
 - **CI now tests the full documented Python range** (#370) - the Python tool tests job
   runs a 3.10-3.14 version matrix instead of pinning 3.12, so both the documented 3.10
